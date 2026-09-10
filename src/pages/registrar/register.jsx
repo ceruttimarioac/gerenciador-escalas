@@ -2,13 +2,13 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 
-function Login() {
+function Register() {
 
   return (
-    <h1>Pagina de login</h1>
+    <h1>Pagina para registrar-se</h1>
 
     
   )
 }
 
-export default Login
+export default Register
