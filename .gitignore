@@ -26,5 +26,5 @@ dist-ssr
 
 # configs
 ApiGerenciador/config-apigerenciador.js
-Apila/config-apiia.js
+ApiIa/config-apiia.js
 ApiRegistrador/config-apiregistrador.js

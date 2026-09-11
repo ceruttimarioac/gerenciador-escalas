@@ -1,5 +1,5 @@
 import fastify from 'fastify'
-import { ADDRESS_API, PORT_API } from './config-apigerenciador.js'
+import { ADDRESS_API, PORT_API, KEY_FIREBASE_API } from './config-apigerenciador.js'
 
 const app = fastify({ logger: false });
 
