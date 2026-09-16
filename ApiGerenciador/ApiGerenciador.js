@@ -1,12 +1,22 @@
 import fastify from 'fastify'
-import { ADDRESS_API, PORT_API, KEY_FIREBASE_API } from './config-apigerenciador.js'
+import cors from '@fastify/cors'
+import { ADDRESS_WEB, ADDRESS_API, PORT_API } from './config-apigerenciador.js'
 
 const app = fastify({ logger: false });
 
+await app.register(cors, {
+  origin: ADDRESS_WEB
+})
 
-app.get('/', async () => ({
+
+app.post('/login', async (request) => {
+
+});
+
+app.post('/registrar', async () => ({
 
 }));
+
 
 
 const start = async () => {
