@@ -30,8 +30,14 @@ function Registrar() {
         throw new Error(data.message || 'Erro ao fazer registro')
       }
 
+      if(response.ok) {
+        window.alert('Registro realizado com sucesso! Faça login para continuar.')
+      }
+
     } catch (err) {
       setError(err.message)
+      console.log(err.message)
+      window.alert('Erro ao fazer registro: ' + err.message)
     } finally {
       setLoading(false)
     }
@@ -68,7 +74,7 @@ function Registrar() {
             Registrar
           </button>
           
-          <Link className="register-link-text" to="/">
+          <Link className="register-link-text" to="/Login">
             Logar-se
           </Link>
         </form>

@@ -30,10 +30,14 @@ function Login() {
         throw new Error(data.message || 'Erro ao fazer login')
       }
 
-      localStorage.setItem('token', data.token)
-      navigate('/Home')
+      if(response.ok) {
+        localStorage.setItem('token', data.token)
+        navigate('/Home')
+      }
     } catch (err) {
       setError(err.message)
+      console.log(err.message)
+      window.alert('Erro ao fazer login: ' + err.message)
     } finally {
       setLoading(false)
     }
