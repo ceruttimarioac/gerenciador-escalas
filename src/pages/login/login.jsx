@@ -26,11 +26,11 @@ function Login() {
 
       const data = await response.json()
 
-      if (!response.ok) {
+      if (!data.success) {
         throw new Error(data.message || 'Erro ao fazer login')
       }
 
-      if(response.ok) {
+      if(data.success) {
         localStorage.setItem('token', data.token)
         navigate('/Home')
       }
