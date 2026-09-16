@@ -1,0 +1,57 @@
+.registrar-page {
+	width: min(100%, 24rem);
+	padding: 1rem;
+}
+
+.registrar-panel {
+	padding: 2rem 1.5rem;
+	border-radius: 10px;
+	background: #fffaf0;
+	box-shadow: 0 8px 24px rgba(67, 45, 12, 0.24);
+}
+
+.registrar-panel h1 {
+	margin: 0 0 1.5rem;
+	color: #352b1b;
+	font-size: 1.75rem;
+	text-align: center;
+}
+
+.registrar-form {
+	display: flex;
+	flex-direction: column;
+	gap: 0.55rem;
+}
+
+.registrar-form label {
+	margin-top: 0.5rem;
+	color: #554324;
+	font-weight: 600;
+}
+
+.registrar-form button {
+	margin-top: 1rem;
+	padding: 0.75rem;
+	border: 0;
+	border-radius: 6px;
+	background: #9c6c16;
+	color: #ffffff;
+	font: inherit;
+	font-weight: 700;
+	cursor: pointer;
+}
+
+.registrar-form button:hover {
+	background: #7f5510;
+}
+
+.registrar-form button:focus-visible {
+	outline: 2px solid #352b1b;
+	outline-offset: 2px;
+}
+
+.register-link-text {
+	text-align: center;
+	text-decoration: none;
+	color: #9c6c16;
+}
