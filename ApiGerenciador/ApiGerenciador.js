@@ -50,9 +50,48 @@ app.post('/login', async (request, reply) => {
   }
 });
 
-app.post('/registrar', async () => ({
+app.post('/registrar', async (request, reply) => {
+  try {
 
-}));
+    const { email, password } = request.body;
+    const response = await fetch(
+      `https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${KEY_FIREBASE_API}`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          email: email,
+          password: password,
+          returnSecureToken: true
+        })
+      }
+    );
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      reply.code(response.status);
+      return {
+        success: false,
+        message: data.error?.message
+      };
+    }
+
+    return {
+      success: true,
+      token: data.idToken
+    };
+
+  } catch (error) {
+    reply.code(500);
+    return {
+      success: false,
+      message: error.message
+    };
+  }
+});
 
 
 
