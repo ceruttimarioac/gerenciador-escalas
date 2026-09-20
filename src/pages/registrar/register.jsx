@@ -10,38 +10,41 @@ function Registrar() {
   const [error, setError] = useState(null)
   const navigate = useNavigate()
 
-  async function controller(event) {
-    event.preventDefault()
-    setLoading(true)
-    setError(null)
+ async function controller(event) {
+  event.preventDefault()
+  setLoading(true)
+  setError(null)
 
-    try {
-      const response = await fetch('http://' + APIGERENCIADOR + '/registrar', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ email, password })
-      })
+  try {
+    const response = await fetch('http://' + APIGERENCIADOR + '/registrar', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ email, password })
+    })
 
-      const data = await response.json()
+    const data = await response.json()
 
-      if (!response.ok) {
-        throw new Error(data.message || 'Erro ao fazer registro')
-      }
-
-      if(response.ok) {
-        window.alert('Registro realizado com sucesso! Faça login para continuar.')
-      }
-
-    } catch (err) {
-      setError(err.message)
-      console.log(err.message)
-      window.alert('Erro ao fazer registro: ' + err.message)
-    } finally {
-      setLoading(false)
+    if (!response.ok) {
+      throw new Error(data.message || 'Erro ao fazer registro')
     }
+
+  if (data.success) {
+  window.alert('Registro realizado com sucesso! Faça login para continuar.')
+  navigate('/Login')
+  } else {
+      throw new Error(data.message || 'Erro ao fazer registro')
+    }
+
+  } catch (err) {
+    setError(err.message)
+    console.log(err.message)
+    window.alert('Erro ao fazer registro: ' + err.message)
+  } finally {
+    setLoading(false)
   }
+}
 
   return (
     <main className="registrar-page">
