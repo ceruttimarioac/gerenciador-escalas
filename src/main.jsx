@@ -23,6 +23,8 @@ createRoot(document.getElementById('root')).render(
         <Route path="/CadEscalas" element={<CadEscalas />} />
         <Route path="/ConsUsuarios" element={<ConsUsuarios />} />
         <Route path="/CadUsuarios" element={<CadUsuarios />} />
+        <Route path="/Escalas" element={<ConsEscalas />} />
+        <Route path="/Usuarios" element={<ConsUsuarios />} />
       </Routes>
     </BrowserRouter>
   </StrictMode>,
