@@ -5,9 +5,7 @@ function CadEscalas() {
 
   return (
     <h1>Pagina de Cadastro de Escalas</h1>
-
-    
   )
 }
 
-export default cadEscalas
+export default CadEscalas
