@@ -17,5 +17,6 @@ function Home() {
       </section>
     </main>
   )
+}
 
 export default Home
