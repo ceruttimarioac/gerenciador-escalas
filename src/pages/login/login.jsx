@@ -31,7 +31,15 @@ function Login() {
       }
 
       if(data.success) {
+        if (!data.token) {
+          throw new Error('O servidor não retornou um token de acesso')
+        }
+
         localStorage.setItem('token', data.token)
+        localStorage.setItem(
+          'tokenExpiresAt',
+          String(Date.now() + Number(data.expiresIn || 3600) * 1000),
+        )
         navigate('/Home')
       }
     } catch (err) {

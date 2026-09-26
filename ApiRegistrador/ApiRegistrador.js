@@ -1,31 +1,26 @@
 import fastify from 'fastify'
-import cors from '@fastify/cors'
-import { ADDRESS_WEB, ADDRESS_API, PORT_API, PASSWORD_DB, USER_DB } from './config-apiregistrador.js'
+import { ADDRESS_API, PORT_API, PASSWORD_DB, USER_DB } from './config-apiregistrador.js'
 
 const app = fastify({ logger: false });
 
-await app.register(cors, {
-  origin: ADDRESS_WEB
-})
 
-
-app.post('/login', async (request) => {
-  console.log('Login recebido para:', request.body?.email)
-
-  return {
-    message: 'Login OK'
-  }
-});
-
-app.post('/registrar', async () => ({
-
+app.get('/consultausuario', async (request) => ({
+  success: true,
+  usuarios: [],
+  filtro: request.query.textopesquisado || ''
 }));
+
+
+
 
 
 
 const start = async () => {
   try {
-    await app.listen({ port: PORT_API, host: ADDRESS_API });
+    await app.listen({
+      port: PORT_API || 3334,
+      host: ADDRESS_API || '127.0.0.1'
+    });
     console.log(`Server is running on port ${PORT_API}`);
   } catch (err) {
     app.log.error(err);

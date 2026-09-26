@@ -4,9 +4,10 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "concurrently -k -n FRONTEND,GERENCIADOR \"npm:dev:frontend\" \"npm:dev:apigerenciador\" ",
+    "dev": "concurrently -k -n FRONTEND,GERENCIADOR,REGISTRADOR \"npm:dev:frontend\" \"npm:dev:apigerenciador\" \"npm:dev:apiregistrador\" ",
     "dev:frontend": "vite",
     "dev:apigerenciador": "node ApiGerenciador/ApiGerenciador.js",
+    "dev:apiregistrador": "node ApiRegistrador/ApiRegistrador.js",
     "build": "vite build",
     "lint": "oxlint",
     "preview": "vite preview"
