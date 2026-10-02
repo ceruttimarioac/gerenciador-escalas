@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useEffectEvent, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { APIGERENCIADOR } from '../../config-web'
 import './consusuarios.css'
@@ -6,12 +6,12 @@ import './consusuarios.css'
 function ConsUsuarios() {
   const [filtro, setFiltro] = useState('')
   const [usuarios, setUsuarios] = useState([])
-  const [consultando, setConsultando] = useState(false)
+  const [consultando, setConsultando] = useState(true)
   const [erro, setErro] = useState('')
   const requestController = useRef(null)
   const navigate = useNavigate()
 
-  async function consultarUsuarios(valor) {
+  async function consultarUsuarios(valor, inicial = false) {
     requestController.current?.abort()
 
     const token = localStorage.getItem('token')
@@ -26,8 +26,10 @@ function ConsUsuarios() {
 
     const controller = new AbortController()
     requestController.current = controller
-    setConsultando(true)
-    setErro('')
+    if (!inicial) {
+      setConsultando(true)
+      setErro('')
+    }
 
     try {
       const response = await fetch(
@@ -63,6 +65,16 @@ function ConsUsuarios() {
     }
   }
 
+  const consultarTodosUsuarios = useEffectEvent(() => consultarUsuarios('', true))
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => consultarTodosUsuarios(), 0)
+    return () => {
+      window.clearTimeout(timeoutId)
+      requestController.current?.abort()
+    }
+  }, [])
+
   return (
     <main className="cons-usuarios-page">
       <section className="cons-usuarios-content" aria-labelledby="cons-usuarios-title">
@@ -94,10 +106,16 @@ function ConsUsuarios() {
             <p className="cons-usuarios-empty" role="alert">{erro}</p>
           ) : usuarios.length > 0 ? (
             usuarios.map((usuario) => (
-              <div className="cons-usuarios-row" key={usuario.codigo}>
-                <span className="cons-usuarios-code">{usuario.codigo}</span>
-                <span className="cons-usuarios-name">{usuario.nome}</span>
-              </div>
+              <button
+                className="cons-usuarios-row"
+                type="button"
+                key={usuario.user_cod}
+                onClick={() => navigate(`/CadUsuarios/${usuario.user_cod}`, { state: { usuario } })}
+                aria-label={`Editar colaborador ${usuario.user_nome}, código ${usuario.user_cod}`}
+              >
+                <span className="cons-usuarios-code">{usuario.user_cod}</span>
+                <span className="cons-usuarios-name">{usuario.user_nome}</span>
+              </button>
             ))
           ) : (
             <p className="cons-usuarios-empty">

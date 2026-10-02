@@ -1,4 +1,8 @@
 export const ADDRESS_API = ''
 export const PORT_API = ''
+export const IP_DB = ''
+export const PORT_DB = ''
 export const USER_DB = ''
 export const PASSWORD_DB = ''
+export const DATABASE_DB = '' // Nome do schema do banco de dados que será utilizado pela API registradora. Exemplo: 'TesteDB'
+export const SAVE_LOG = ''

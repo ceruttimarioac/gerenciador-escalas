@@ -74,6 +74,21 @@
 	border-radius: 6px;
 	background: #fffdf8;
 	color: #352b1b;
+	font: inherit;
+	text-align: left;
+	cursor: pointer;
+	transition: border-color 160ms ease, background-color 160ms ease;
+}
+
+.cons-usuarios-row:hover,
+.cons-usuarios-row:focus-visible {
+	border-color: #a87518;
+	background: #f5ead1;
+}
+
+.cons-usuarios-row:focus-visible {
+	outline: 2px solid #a87518;
+	outline-offset: 2px;
 }
 
 .cons-usuarios-code {

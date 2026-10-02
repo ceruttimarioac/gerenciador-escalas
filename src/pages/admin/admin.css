@@ -1,0 +1,249 @@
+.admin-page {
+  width: min(100%, 68rem);
+  min-height: 100vh;
+  margin: 0 auto;
+  padding: 2rem;
+  box-sizing: border-box;
+  color: #352b1b;
+  font-family: 'Aptos', 'Segoe UI Variable', 'Segoe UI', sans-serif;
+}
+
+.admin-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  padding-bottom: 1rem;
+  border-bottom: 2px solid #a87518;
+}
+
+.admin-header p,
+.admin-section__header p {
+  margin: 0 0 0.35rem;
+  color: #5a3a05;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.admin-header h1 {
+  margin: 0;
+  font-size: 1.75rem;
+}
+
+.admin-section {
+  margin: 0 0 1.5rem;
+  padding: 1.25rem 0;
+  border-bottom: 1px solid #d8c18a;
+}
+
+.admin-section__header {
+  margin-bottom: 1rem;
+}
+
+.admin-section__header h2 {
+  margin: 0 0 0.35rem;
+  font-size: 1.15rem;
+}
+
+.admin-section__header p {
+  margin: 0;
+  color: #756a55;
+  font-size: 0.875rem;
+  font-weight: 400;
+}
+
+.admin-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.admin-form--single {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.admin-field {
+  display: grid;
+  align-content: start;
+  gap: 0.45rem;
+  min-width: 0;
+  color: #352b1b;
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.admin-field input,
+.admin-field select {
+  width: 100%;
+  min-height: 2.9rem;
+  padding: 0.7rem 0.85rem;
+  box-sizing: border-box;
+  border: 1px solid #d8c18a;
+  border-radius: 6px;
+  background: #fffdf8;
+  color: #352b1b;
+  font: inherit;
+}
+
+.admin-field input:focus,
+.admin-field select:focus {
+  border-color: #a87518;
+  outline: 2px solid rgba(168, 117, 24, 0.22);
+}
+
+.admin-field input[readonly] {
+  color: #756a55;
+}
+
+.admin-field--wide,
+.admin-form-actions {
+  grid-column: 1 / -1;
+}
+
+.admin-form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  margin-top: 0.35rem;
+}
+
+.admin-primary-button,
+.admin-secondary-button,
+.admin-home-button {
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 2.8rem;
+  padding: 0.65rem 1rem;
+  box-sizing: border-box;
+  border: 1px solid #5a3a05;
+  border-radius: 6px;
+  font: inherit;
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.admin-primary-button,
+.admin-home-button {
+  background: #5a3a05;
+  color: #fffdf8;
+}
+
+.admin-secondary-button {
+  background: #fffdf8;
+  color: #5a3a05;
+}
+
+.admin-primary-button:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+.admin-primary-button:focus-visible,
+.admin-secondary-button:focus-visible,
+.admin-home-button:focus-visible {
+  outline: 2px solid #a87518;
+  outline-offset: 3px;
+}
+
+.admin-message {
+  margin: 0 0 1rem;
+  padding: 0.8rem 1rem;
+  border-radius: 4px;
+}
+
+.admin-message--error {
+  border-left: 4px solid #a32828;
+  background: #fff0ed;
+  color: #762020;
+}
+
+.admin-message--success {
+  border-left: 4px solid #28754a;
+  background: #edf8f0;
+  color: #205c3a;
+}
+
+.admin-company-summary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem 1.5rem;
+  margin: 0;
+}
+
+.admin-company-summary div {
+  min-width: 0;
+}
+
+.admin-company-summary dt {
+  color: #756a55;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.admin-company-summary dd {
+  margin: 0.2rem 0 0;
+  overflow-wrap: anywhere;
+}
+
+.admin-function-list {
+  display: grid;
+  gap: 0.45rem;
+  margin: 0 0 1rem;
+  padding: 0;
+  list-style: none;
+}
+
+.admin-function-list li {
+  display: grid;
+  grid-template-columns: 5rem minmax(0, 1fr);
+  gap: 0.75rem;
+  padding: 0.7rem 0.85rem;
+  border: 1px solid #d8c18a;
+  border-radius: 6px;
+  background: #fffdf8;
+}
+
+.admin-function-list strong {
+  color: #5a3a05;
+}
+
+.admin-function-list span {
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 600px) {
+  .admin-page {
+    padding: 1.25rem 1rem;
+  }
+
+  .admin-header {
+    align-items: flex-start;
+  }
+
+  .admin-header h1 {
+    font-size: 1.4rem;
+  }
+
+  .admin-form,
+  .admin-company-summary {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .admin-field--wide,
+  .admin-form-actions {
+    grid-column: auto;
+  }
+
+  .admin-form-actions {
+    flex-direction: column-reverse;
+  }
+
+  .admin-primary-button,
+  .admin-secondary-button,
+  .admin-home-button {
+    width: 100%;
+  }
+}

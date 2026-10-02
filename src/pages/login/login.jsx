@@ -27,6 +27,19 @@ function Login() {
       const data = await response.json()
 
       if (!data.success) {
+        if (data.code === 'USER_NOT_REGISTERED' && data.token) {
+          localStorage.removeItem('emp_id')
+          localStorage.removeItem('user_cod')
+          navigate('/Admin', {
+            state: {
+              adminBootstrap: true,
+              token: data.token,
+              expiresIn: data.expiresIn,
+              email: data.email || email
+            }
+          })
+          return
+        }
         throw new Error(data.message || 'Erro ao fazer login')
       }
 
@@ -40,6 +53,8 @@ function Login() {
           'tokenExpiresAt',
           String(Date.now() + Number(data.expiresIn || 3600) * 1000),
         )
+        localStorage.removeItem('emp_id')
+        localStorage.removeItem('user_cod')
         navigate('/Home')
       }
     } catch (err) {

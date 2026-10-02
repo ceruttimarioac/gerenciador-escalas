@@ -1,0 +1,22 @@
+Este projeto usa Node.js e npm. Este arquivo e informativo; nao use pip install -r requirements.txt.
+
+Requisito: Node.js e npm instalados.
+
+Para instalar todas as dependencias de producao e desenvolvimento na raiz do projeto:
+npm install
+
+Dependencias de producao (package.json -> dependencies):
+@fastify/cors ^11.3.0
+fastify ^5.12.3
+pg ^8.23.1
+react ^19.2.8
+react-dom ^19.2.8
+react-router-dom ^7.18.3
+
+Dependencias de desenvolvimento (package.json -> devDependencies):
+@types/react ^19.2.18
+@types/react-dom ^19.2.4
+@vitejs/plugin-react ^6.1.0
+concurrently ^10.0.5
+oxlint ^1.79.0
+vite ^8.2.2

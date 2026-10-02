@@ -10,6 +10,9 @@ import ConsEscalas from './pages/escalas/consescalas.jsx'
 import CadEscalas from './pages/escalas/cadescalas.jsx'
 import ConsUsuarios from './pages/usuarios/consusuarios.jsx'
 import CadUsuarios from './pages/usuarios/cadusuarios.jsx'
+import CadFuncoes from './pages/funcoes/cadfuncoes.jsx'
+import ConsFuncoes from './pages/funcoes/consfuncoes.jsx'
+import Admin from './pages/admin/admin.jsx'
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
@@ -18,11 +21,15 @@ createRoot(document.getElementById('root')).render(
         <Route path="/" element={<Login />} />
         <Route path="/login" element={<Login />} />
         <Route path="/Home" element={<Home />} />
+        <Route path="/Admin" element={<Admin />} />
         <Route path="/Registrar" element={<Register />} />
         <Route path="/ConsEscalas" element={<ConsEscalas />} />
         <Route path="/CadEscalas" element={<CadEscalas />} />
         <Route path="/ConsUsuarios" element={<ConsUsuarios />} />
+        <Route path="/CadUsuarios/:userCod" element={<CadUsuarios />} />
         <Route path="/CadUsuarios" element={<CadUsuarios />} />
+        <Route path="/CadFuncoes" element={<CadFuncoes />} />
+        <Route path="/ConsFuncoes" element={<ConsFuncoes />} />
         <Route path="/Escalas" element={<ConsEscalas />} />
         <Route path="/Usuarios" element={<ConsUsuarios />} />
       </Routes>
