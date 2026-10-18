@@ -124,7 +124,7 @@ app.post('/bootstrapempresa', async (request, reply) => {
     })
     return { success: true, empresa: company, usuario: user, funcao: initialRole }
   } catch (error) {
-    if (client) await client.query('ROLLBACK').catch(() => {})
+    if (client) await client.query('ROLLBACK').catch(() => { })
     await log('error', 'initial_company_registration_failed', {
       code: error.code || null,
       message: error.message
@@ -254,7 +254,7 @@ app.post('/cadastrarusuario', async (request, reply) => {
     })
     return { usuario: createdUser }
   } catch (error) {
-    if (client) await client.query('ROLLBACK').catch(() => {})
+    if (client) await client.query('ROLLBACK').catch(() => { })
     await log('error', 'user_insert_failed', {
       code: error.code || null,
       message: error.message
@@ -464,7 +464,7 @@ app.put('/atualizarusuario/:userCod', async (request, reply) => {
     await log('info', 'user_updated', { empId, userCod })
     return { success: true, usuario: userRows[0] }
   } catch (error) {
-    if (client) await client.query('ROLLBACK').catch(() => {})
+    if (client) await client.query('ROLLBACK').catch(() => { })
     await log('error', 'user_update_failed', {
       code: error.code || null,
       message: error.message
@@ -774,7 +774,18 @@ app.post('/inseriescalas', async (request, reply) => {
     }
   } catch (error) {
     if (client) {
-      await client.query('ROLLBACK').catch(() => {})
+      await client.query('ROLLBACK').catch(() => { })
+    }
+
+    if (
+      error.code === '23505' &&
+      error.constraint === 'uq_escala_empresa_data_periodo'
+    ) {
+      reply.code(409)
+      return {
+        success: false,
+        message: 'Já existe uma escala cadastrada para esta data e período.'
+      }
     }
 
     await log('error', 'escala_insert_failed', {
@@ -1076,7 +1087,7 @@ app.put('/atualizaescalas/:escCod', async (request, reply) => {
     }
   } catch (error) {
     if (client) {
-      await client.query('ROLLBACK').catch(() => {})
+      await client.query('ROLLBACK').catch(() => { })
     }
 
     await log('error', 'escala_update_failed', {

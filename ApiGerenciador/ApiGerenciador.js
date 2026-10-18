@@ -709,23 +709,30 @@ app.put('/atualizaescalas/:escCod', async (request, reply) => {
 app.post('/geraescalaia', async (request, reply) => {
   try {
     const userId = await obterUidAutenticado(request, reply)
-
     if (!userId) {
       reply.code(401)
       return { success: false, message: 'Sessão expirada.' }
     }
 
-    if (!process.env.GEMINI_API_KEY) {
-      reply.code(503)
-      return { success: false, message: 'Chave do Gemini não configurada.' }
-    }
-
-    const { escalas, usuariosExcluidos = [] } = request.body || {}
+    const {
+      escalas,
+      usuariosExcluidos = [],
+      atribuicoesFixas = []
+    } = request.body || {}
 
     if (!Array.isArray(escalas) || escalas.length === 0 ||
-        !Array.isArray(usuariosExcluidos)) {
+        !Array.isArray(usuariosExcluidos) || !Array.isArray(atribuicoesFixas)) {
       reply.code(400)
       return { success: false, message: 'Dados de geração inválidos.' }
+    }
+
+    const excluidos = new Set()
+    for (const codigo of usuariosExcluidos) {
+      if (!Number.isSafeInteger(codigo) || codigo < 1) {
+        reply.code(400)
+        return { success: false, message: 'Colaborador excluído inválido.' }
+      }
+      excluidos.add(codigo)
     }
 
     const datas = new Set()
@@ -734,223 +741,187 @@ app.post('/geraescalaia', async (request, reply) => {
     for (const escala of escalas) {
       const { data, periodo, funcoes } = escala || {}
       const dataObj = new Date(`${data}T00:00:00Z`)
-
-      const dataValida =
-        typeof data === 'string' &&
+      const dataValida = typeof data === 'string' &&
         /^\d{4}-\d{2}-\d{2}$/.test(data) &&
         !Number.isNaN(dataObj.getTime()) &&
         dataObj.toISOString().slice(0, 10) === data
 
       if (!dataValida || !['M', 'T', 'N'].includes(periodo) ||
-          !Array.isArray(funcoes) || funcoes.length === 0 ||
-          funcoes.length > 30) {
+          !Array.isArray(funcoes) || funcoes.length === 0 || funcoes.length > 30) {
         reply.code(400)
         return { success: false, message: 'Data, período ou funções inválidos.' }
       }
 
       datas.add(data)
-
       for (const funcCod of funcoes) {
         const codigo = Number(funcCod)
-
-        if (!Number.isInteger(codigo) || codigo < 1) {
+        if (!Number.isSafeInteger(codigo) || codigo < 1) {
           reply.code(400)
           return { success: false, message: 'Código de função inválido.' }
         }
-
-        tarefas.push({ data, periodo, funcCod: codigo })
+        tarefas.push({ indice: tarefas.length, data, periodo, funcCod: codigo })
       }
     }
 
     const ordenadas = [...datas].sort()
     const inicio = Date.parse(`${ordenadas[0]}T00:00:00Z`)
     const fim = Date.parse(`${ordenadas[ordenadas.length - 1]}T00:00:00Z`)
-
-    if (datas.size > 30 || (fim - inicio) / 86400000 >= 30 ||
-        tarefas.length > 900) {
+    if (datas.size > 30 || (fim - inicio) / 86400000 >= 30 || tarefas.length > 900) {
       reply.code(400)
       return { success: false, message: 'Limite de geração excedido.' }
     }
 
-
-const excluidos = new Set(usuariosExcluidos.map(Number))
-const cache = new Map()
-const cacheConflitos = new Map()
-const disponibilidade = []
-
-// Consulta os colaboradores já escalados em cada data e período.
-for (const tarefa of tarefas) {
-  const chave = `${tarefa.data}|${tarefa.periodo}`
-
-  if (cacheConflitos.has(chave)) {
-    continue
-  }
-
-  const query = new URLSearchParams({
-    userId,
-    data: tarefa.data,
-    periodo: tarefa.periodo
-  })
-
-  const { response, data: resultado } = await consultarRegistrador(
-    `/consultarconflitosescala?${query}`
-  )
-
-  if (!response.ok || !resultado.success ||
-      !Array.isArray(resultado.usuariosOcupados)) {
-    reply.code(503)
-    return {
-      success: false,
-      message: 'Não foi possível verificar os conflitos das escalas.'
+    // O índice corresponde à posição de cada função na ordem enviada em escalas.
+    // Assim, duas funções iguais no mesmo período continuam sendo vagas distintas.
+    const fixas = new Map()
+    const ocupadosManuais = new Set()
+    for (const fixa of atribuicoesFixas) {
+      const { indice, userCod, codUserFunc } = fixa || {}
+      if (!Number.isSafeInteger(indice) || indice < 0 || indice >= tarefas.length ||
+          !Number.isSafeInteger(userCod) || userCod < 1 ||
+          !Number.isSafeInteger(codUserFunc) || codUserFunc < 1 ||
+          fixas.has(indice) || excluidos.has(userCod)) {
+        reply.code(400)
+        return { success: false, message: 'Atribuição manual inválida.' }
+      }
+      const tarefa = tarefas[indice]
+      const chave = `${tarefa.data}|${tarefa.periodo}|${userCod}`
+      if (ocupadosManuais.has(chave)) {
+        reply.code(400)
+        return { success: false, message: 'Colaborador repetido no mesmo período.' }
+      }
+      ocupadosManuais.add(chave)
+      fixas.set(indice, { userCod, codUserFunc })
     }
-  }
 
-  cacheConflitos.set(
-    chave,
-    new Set(resultado.usuariosOcupados.map(Number))
-  )
-}
-
+    const cache = new Map()
+    const cacheConflitos = new Map()
+    const disponibilidade = []
+    const resultadoFinal = Array(tarefas.length).fill(null)
 
     for (const tarefa of tarefas) {
-      const chave = `${tarefa.data}|${tarefa.funcCod}`
-
-      if (!cache.has(chave)) {
+      const chavePeriodo = `${tarefa.data}|${tarefa.periodo}`
+      if (!cacheConflitos.has(chavePeriodo)) {
         const query = new URLSearchParams({
-          userId,
-          funcCod: String(tarefa.funcCod),
-          data: tarefa.data
+          userId, data: tarefa.data, periodo: tarefa.periodo
         })
+        const { response, data: resultado } = await consultarRegistrador(
+          `/consultarconflitosescala?${query}`
+        )
+        if (!response.ok || !resultado.success ||
+            !Array.isArray(resultado.usuariosOcupados)) {
+          reply.code(503)
+          return { success: false, message: 'Não foi possível verificar os conflitos das escalas.' }
+        }
+        cacheConflitos.set(chavePeriodo, new Set(resultado.usuariosOcupados.map(Number)))
+      }
 
+      const chaveFuncao = `${tarefa.data}|${tarefa.funcCod}`
+      if (!cache.has(chaveFuncao)) {
+        const query = new URLSearchParams({
+          userId, funcCod: String(tarefa.funcCod), data: tarefa.data
+        })
         const { response, data: resultado } = await consultarRegistrador(
           `/consultarusuariosdisponiveis?${query}`
         )
-
-        if (!response.ok || !resultado.success) {
+        if (!response.ok || !resultado.success || !Array.isArray(resultado.usuarios)) {
           reply.code(503)
-          return {
-            success: false,
-            message: 'Erro ao consultar colaboradores disponíveis.'
-          }
+          return { success: false, message: 'Erro ao consultar colaboradores disponíveis.' }
         }
-
-        cache.set(chave, resultado.usuarios || [])
+        cache.set(chaveFuncao, resultado.usuarios)
       }
 
-      disponibilidade.push({
-        ...tarefa,
-        usuarios: cache.get(chave)
-          .filter(u =>
-            !excluidos.has(Number(u.user_cod)) &&
-            !cacheConflitos.get(`${tarefa.data}|${tarefa.periodo}`)
-            .has(Number(u.user_cod))
-        )
-          .map(u => ({
-            userCod: Number(u.user_cod),
-            nome: u.user_nome,
-            codUserFunc: Number(u.cod_user_func)
-          }))
+      const usuarios = cache.get(chaveFuncao)
+        .filter(u => !excluidos.has(Number(u.user_cod)) &&
+          !cacheConflitos.get(chavePeriodo).has(Number(u.user_cod)))
+        .map(u => ({
+          userCod: Number(u.user_cod),
+          nome: u.user_nome,
+          codUserFunc: Number(u.cod_user_func)
+        }))
+
+      const fixa = fixas.get(tarefa.indice)
+      if (fixa) {
+        const usuario = usuarios.find(u =>
+          u.userCod === fixa.userCod && u.codUserFunc === fixa.codUserFunc)
+        if (!usuario) {
+          reply.code(409)
+          return { success: false, message: `A escolha manual da posição ${tarefa.indice + 1} não está disponível.` }
+        }
+        resultadoFinal[tarefa.indice] = {
+          ...tarefa, userCod: fixa.userCod,
+          codUserFunc: fixa.codUserFunc, nome: usuario.nome, origem: 'manual'
+        }
+      } else {
+        disponibilidade.push({
+          ...tarefa,
+          usuarios: usuarios.filter(u =>
+            !ocupadosManuais.has(`${tarefa.data}|${tarefa.periodo}|${u.userCod}`))
+        })
+      }
+    }
+
+    // Quando todas as posições foram preenchidas manualmente, não é necessário chamar o Gemini.
+    if (disponibilidade.length > 0) {
+      if (!process.env.GEMINI_API_KEY) {
+        reply.code(503)
+        return { success: false, message: 'Chave do Gemini não configurada.' }
+      }
+
+      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY })
+      const resposta = await ai.models.generateContent({
+        model: 'gemini-2.5-flash',
+        contents: `Você é responsável por sugerir escalas de trabalho.
+Para cada posição escolha somente um colaborador da lista permitida.
+Não invente colaboradores. Não use o mesmo colaborador duas vezes na mesma data e período.
+Distribua o trabalho de maneira equilibrada.
+Quando não houver colaborador disponível, use null em userCod e codUserFunc.
+Retorne exatamente uma entrada por posição, mantendo o campo indice de cada posição.
+Responda apenas com JSON válido no formato:
+{"escalas":[{"indice":0,"userCod":1,"codUserFunc":1}]}
+Posições: ${JSON.stringify(disponibilidade)}`,
+        config: { responseMimeType: 'application/json' }
       })
-    }
 
-    const ai = new GoogleGenAI({
-      apiKey: process.env.GEMINI_API_KEY
-    })
-
-    const resposta = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
-      contents: `
-Você é responsável por sugerir escalas de trabalho.
-
-Para cada posição solicitada, escolha um colaborador da lista permitida.
-
-Regras:
-- Não invente colaboradores.
-- Não use o mesmo colaborador duas vezes na mesma data e período.
-- Distribua o trabalho de maneira equilibrada.
-- Quando não houver colaborador disponível, use null nos campos userCod e codUserFunc.
-- Retorne exatamente uma entrada por posição, inclusive funções repetidas.
-- Responda apenas com JSON válido.
-
-Formato obrigatório:
-{
-  "escalas": [
-    {
-      "data": "2026-10-20",
-      "periodo": "M",
-      "funcCod": 2,
-      "userCod": 1,
-      "codUserFunc": 1
-    }
-  ]
-}
-
-Posições:
-${JSON.stringify(disponibilidade)}
-      `,
-      config: { responseMimeType: 'application/json' }
-    })
-
-    let sugestao
-
-    try {
-      sugestao = JSON.parse(resposta.text)
-    } catch {
-      reply.code(502)
-      return { success: false, message: 'Resposta inválida do Gemini.' }
-    }
-
-    if (!Array.isArray(sugestao?.escalas) ||
-        sugestao.escalas.length !== disponibilidade.length) {
-      reply.code(502)
-      return { success: false, message: 'Quantidade de escalas inválida.' }
-    }
-
-    const restantes = [...disponibilidade]
-    const utilizados = new Set()
-    const resultadoFinal = []
-
-    for (const item of sugestao.escalas) {
-      const indice = restantes.findIndex(p =>
-        p.data === item.data &&
-        p.periodo === item.periodo &&
-        p.funcCod === Number(item.funcCod)
-      )
-
-      if (indice === -1) {
+      let sugestao
+      try {
+        sugestao = JSON.parse(resposta.text)
+      } catch {
         reply.code(502)
-        return { success: false, message: 'Posição inválida retornada pela IA.' }
+        return { success: false, message: 'Resposta inválida do Gemini.' }
+      }
+      if (!Array.isArray(sugestao?.escalas) ||
+          sugestao.escalas.length !== disponibilidade.length) {
+        reply.code(502)
+        return { success: false, message: 'Quantidade de escalas inválida.' }
       }
 
-      const [posicao] = restantes.splice(indice, 1)
-      const userCod = item.userCod == null ? null : Number(item.userCod)
-      const codUserFunc = item.codUserFunc == null
-        ? null
-        : Number(item.codUserFunc)
-
-      const usuario = posicao.usuarios.find(u =>
-        u.userCod === userCod && u.codUserFunc === codUserFunc
-      )
-
-      const chave = `${posicao.data}|${posicao.periodo}|${userCod}`
-
-      if ((userCod !== null && !usuario) ||
-          (userCod === null && codUserFunc !== null) ||
-          (userCod !== null && utilizados.has(chave))) {
-        reply.code(502)
-        return { success: false, message: 'Atribuição inválida retornada pela IA.' }
+      const restantes = new Map(disponibilidade.map(p => [p.indice, p]))
+      const utilizados = new Set(ocupadosManuais)
+      for (const item of sugestao.escalas) {
+        const posicao = restantes.get(item?.indice)
+        if (!posicao) {
+          reply.code(502)
+          return { success: false, message: 'Posição inválida retornada pela IA.' }
+        }
+        restantes.delete(item.indice)
+        const userCod = item.userCod == null ? null : Number(item.userCod)
+        const codUserFunc = item.codUserFunc == null ? null : Number(item.codUserFunc)
+        const usuario = posicao.usuarios.find(u =>
+          u.userCod === userCod && u.codUserFunc === codUserFunc)
+        const chave = `${posicao.data}|${posicao.periodo}|${userCod}`
+        if ((userCod !== null && !usuario) ||
+            (userCod === null && codUserFunc !== null) ||
+            (userCod !== null && utilizados.has(chave))) {
+          reply.code(502)
+          return { success: false, message: 'Atribuição inválida retornada pela IA.' }
+        }
+        if (userCod !== null) utilizados.add(chave)
+        resultadoFinal[posicao.indice] = {
+          ...posicao, usuarios: undefined, userCod, codUserFunc,
+          nome: usuario?.nome || null, origem: 'ia'
+        }
       }
-
-      if (userCod !== null) utilizados.add(chave)
-
-      resultadoFinal.push({
-        data: posicao.data,
-        periodo: posicao.periodo,
-        funcCod: posicao.funcCod,
-        userCod,
-        codUserFunc,
-        nome: usuario?.nome || null
-      })
     }
 
     return {
@@ -958,22 +929,13 @@ ${JSON.stringify(disponibilidade)}
       message: 'Sugestão gerada. Revise antes de salvar.',
       escalas: resultadoFinal
     }
-
   } catch (error) {
     console.error('ERRO GERAESCALAIA:', error)
-
-    await log('error', 'geraescalaia_failed', {
-      message: error.message
-    })
-
+    await log('error', 'geraescalaia_failed', { message: error.message })
     reply.code(503)
-    return {
-      success: false,
-      message: 'Não foi possível gerar a escala com o Gemini.'
-    }
+    return { success: false, message: 'Não foi possível gerar a escala com o Gemini.' }
   }
 })
-
 
 const start = async () => {
   try {
