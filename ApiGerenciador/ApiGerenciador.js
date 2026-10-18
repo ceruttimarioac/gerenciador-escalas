@@ -2,6 +2,9 @@ import fastify from 'fastify'
 import cors from '@fastify/cors'
 import { ADDRESS_WEB, ADDRESS_API, PORT_API, KEY_FIREBASE_API, SAVE_LOG } from './config-apigerenciador.js'
 import { createApiLogger } from '../apiLogger.js'
+import { GoogleGenAI } from '@google/genai'
+import { loadEnvFile } from 'node:process'
+loadEnvFile()
 
 const app = fastify({ logger: false });
 const log = createApiLogger(import.meta.url, 'ApiGerenciador', SAVE_LOG)
@@ -453,6 +456,523 @@ app.put('/consultausuario/:userCod', async (request, reply) => {
 
 
 
+
+
+app.get('/consultarusuariosdisponiveis', async (request, reply) => {
+  try {
+    const userId = await obterUidAutenticado(request, reply);
+
+    if (!userId) {
+      return {
+        success: false,
+        message: 'Sessão do usuário expirada'
+      };
+    }
+
+    const { funcCod, data } = request.query || {};
+
+    const query = new URLSearchParams({
+      userId,
+      funcCod: String(funcCod || ''),
+      data: String(data || '')
+    });
+
+    const { response, data: resultado } =
+      await consultarRegistrador(
+        `/consultarusuariosdisponiveis?${query}`
+      );
+
+    reply.code(response.status);
+    return resultado;
+
+  } catch (error) {
+    await log('error', 'consultar_usuarios_disponiveis_failed', {
+      message: error.message
+    });
+
+    reply.code(503);
+    return {
+      success: false,
+      message: 'Não foi possível consultar os colaboradores disponíveis'
+    };
+  }
+});
+
+
+app.post('/inseriescalas', async (request, reply) => {
+  try {
+    const userId = await obterUidAutenticado(request, reply)
+
+    if (!userId) {
+      return {
+        success: false,
+        message: 'Sessão do usuário expirada'
+      }
+    }
+
+    const { data, periodo, itens } = request.body || {}
+
+    if (
+      !data ||
+      !['M', 'T', 'N'].includes(periodo) ||
+      !Array.isArray(itens) ||
+      itens.length === 0 ||
+      itens.length > 30
+    ) {
+      reply.code(400)
+      return {
+        success: false,
+        message: 'Informe data, período e até 30 colaboradores.'
+      }
+    }
+
+    const itensFormatados = itens.map((item) => ({
+      cod_user_func: Number(item.cod_user_func)
+    }))
+
+    if (
+      itensFormatados.some(
+        (item) =>
+          !Number.isSafeInteger(item.cod_user_func) ||
+          item.cod_user_func < 1
+      )
+    ) {
+      reply.code(400)
+      return {
+        success: false,
+        message: 'Selecione um colaborador válido para cada função.'
+      }
+    }
+
+    const { response, data: resultado } = await consultarRegistrador(
+      '/inseriescalas',
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          userId,
+          data,
+          periodo,
+          itens: itensFormatados
+        })
+      }
+    )
+
+    reply.code(response.status)
+    return resultado
+
+  } catch (error) {
+    await log('error', 'inseriescalas_failed', {
+      message: error.message
+    })
+
+    reply.code(503)
+
+    return {
+      success: false,
+      message: 'Não foi possível cadastrar a escala.'
+    }
+  }
+})
+
+
+app.get('/consultarescala/:escCod', async (request, reply) => {
+  try {
+    const userId = await obterUidAutenticado(request, reply)
+
+    if (!userId) {
+      return {
+        success: false,
+        message: 'Sessão do usuário expirada'
+      }
+    }
+
+    const escCod = Number(request.params.escCod)
+
+    if (!Number.isSafeInteger(escCod) || escCod < 1) {
+      reply.code(400)
+      return {
+        success: false,
+        message: 'Informe um código de escala válido.'
+      }
+    }
+
+    const { response, data } = await consultarRegistrador(
+      `/consultarescala/${escCod}?userId=${encodeURIComponent(userId)}`
+    )
+
+    reply.code(response.status)
+    return data
+  } catch (error) {
+    await log('error', 'consultarescala_failed', {
+      message: error.message
+    })
+
+    reply.code(503)
+    return {
+      success: false,
+      message: 'Não foi possível consultar a escala.'
+    }
+  }
+})
+
+
+app.put('/atualizaescalas/:escCod', async (request, reply) => {
+  try {
+    const userId = await obterUidAutenticado(request, reply)
+
+    if (!userId) {
+      return {
+        success: false,
+        message: 'Sessão do usuário expirada'
+      }
+    }
+
+    const escCod = Number(request.params.escCod)
+    const { data, periodo, itens } = request.body || {}
+
+    if (!Number.isSafeInteger(escCod) || escCod < 1) {
+      reply.code(400)
+      return {
+        success: false,
+        message: 'Informe um código de escala válido.'
+      }
+    }
+
+    if (
+      !data ||
+      !['M', 'T', 'N'].includes(periodo) ||
+      !Array.isArray(itens) ||
+      itens.length < 1 ||
+      itens.length > 30
+    ) {
+      reply.code(400)
+      return {
+        success: false,
+        message: 'Informe data, período e até 30 colaboradores.'
+      }
+    }
+
+    const itensFormatados = itens.map((item) => ({
+      cod_user_func: Number(item?.cod_user_func)
+    }))
+
+    if (
+      itensFormatados.some(
+        (item) =>
+          !Number.isSafeInteger(item.cod_user_func) ||
+          item.cod_user_func < 1
+      )
+    ) {
+      reply.code(400)
+      return {
+        success: false,
+        message: 'Selecione um colaborador válido para cada função.'
+      }
+    }
+
+    const { response, data: resultado } = await consultarRegistrador(
+      `/atualizaescalas/${escCod}`,
+      {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          userId,
+          data,
+          periodo,
+          itens: itensFormatados
+        })
+      }
+    )
+
+    reply.code(response.status)
+    return resultado
+  } catch (error) {
+    await log('error', 'atualizaescalas_failed', {
+      message: error.message
+    })
+
+    reply.code(503)
+    return {
+      success: false,
+      message: 'Não foi possível atualizar a escala.'
+    }
+  }
+})
+
+
+
+app.post('/geraescalaia', async (request, reply) => {
+  try {
+    const userId = await obterUidAutenticado(request, reply)
+
+    if (!userId) {
+      reply.code(401)
+      return { success: false, message: 'Sessão expirada.' }
+    }
+
+    if (!process.env.GEMINI_API_KEY) {
+      reply.code(503)
+      return { success: false, message: 'Chave do Gemini não configurada.' }
+    }
+
+    const { escalas, usuariosExcluidos = [] } = request.body || {}
+
+    if (!Array.isArray(escalas) || escalas.length === 0 ||
+        !Array.isArray(usuariosExcluidos)) {
+      reply.code(400)
+      return { success: false, message: 'Dados de geração inválidos.' }
+    }
+
+    const datas = new Set()
+    const tarefas = []
+
+    for (const escala of escalas) {
+      const { data, periodo, funcoes } = escala || {}
+      const dataObj = new Date(`${data}T00:00:00Z`)
+
+      const dataValida =
+        typeof data === 'string' &&
+        /^\d{4}-\d{2}-\d{2}$/.test(data) &&
+        !Number.isNaN(dataObj.getTime()) &&
+        dataObj.toISOString().slice(0, 10) === data
+
+      if (!dataValida || !['M', 'T', 'N'].includes(periodo) ||
+          !Array.isArray(funcoes) || funcoes.length === 0 ||
+          funcoes.length > 30) {
+        reply.code(400)
+        return { success: false, message: 'Data, período ou funções inválidos.' }
+      }
+
+      datas.add(data)
+
+      for (const funcCod of funcoes) {
+        const codigo = Number(funcCod)
+
+        if (!Number.isInteger(codigo) || codigo < 1) {
+          reply.code(400)
+          return { success: false, message: 'Código de função inválido.' }
+        }
+
+        tarefas.push({ data, periodo, funcCod: codigo })
+      }
+    }
+
+    const ordenadas = [...datas].sort()
+    const inicio = Date.parse(`${ordenadas[0]}T00:00:00Z`)
+    const fim = Date.parse(`${ordenadas[ordenadas.length - 1]}T00:00:00Z`)
+
+    if (datas.size > 30 || (fim - inicio) / 86400000 >= 30 ||
+        tarefas.length > 900) {
+      reply.code(400)
+      return { success: false, message: 'Limite de geração excedido.' }
+    }
+
+
+const excluidos = new Set(usuariosExcluidos.map(Number))
+const cache = new Map()
+const cacheConflitos = new Map()
+const disponibilidade = []
+
+// Consulta os colaboradores já escalados em cada data e período.
+for (const tarefa of tarefas) {
+  const chave = `${tarefa.data}|${tarefa.periodo}`
+
+  if (cacheConflitos.has(chave)) {
+    continue
+  }
+
+  const query = new URLSearchParams({
+    userId,
+    data: tarefa.data,
+    periodo: tarefa.periodo
+  })
+
+  const { response, data: resultado } = await consultarRegistrador(
+    `/consultarconflitosescala?${query}`
+  )
+
+  if (!response.ok || !resultado.success ||
+      !Array.isArray(resultado.usuariosOcupados)) {
+    reply.code(503)
+    return {
+      success: false,
+      message: 'Não foi possível verificar os conflitos das escalas.'
+    }
+  }
+
+  cacheConflitos.set(
+    chave,
+    new Set(resultado.usuariosOcupados.map(Number))
+  )
+}
+
+
+    for (const tarefa of tarefas) {
+      const chave = `${tarefa.data}|${tarefa.funcCod}`
+
+      if (!cache.has(chave)) {
+        const query = new URLSearchParams({
+          userId,
+          funcCod: String(tarefa.funcCod),
+          data: tarefa.data
+        })
+
+        const { response, data: resultado } = await consultarRegistrador(
+          `/consultarusuariosdisponiveis?${query}`
+        )
+
+        if (!response.ok || !resultado.success) {
+          reply.code(503)
+          return {
+            success: false,
+            message: 'Erro ao consultar colaboradores disponíveis.'
+          }
+        }
+
+        cache.set(chave, resultado.usuarios || [])
+      }
+
+      disponibilidade.push({
+        ...tarefa,
+        usuarios: cache.get(chave)
+          .filter(u =>
+            !excluidos.has(Number(u.user_cod)) &&
+            !cacheConflitos.get(`${tarefa.data}|${tarefa.periodo}`)
+            .has(Number(u.user_cod))
+        )
+          .map(u => ({
+            userCod: Number(u.user_cod),
+            nome: u.user_nome,
+            codUserFunc: Number(u.cod_user_func)
+          }))
+      })
+    }
+
+    const ai = new GoogleGenAI({
+      apiKey: process.env.GEMINI_API_KEY
+    })
+
+    const resposta = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: `
+Você é responsável por sugerir escalas de trabalho.
+
+Para cada posição solicitada, escolha um colaborador da lista permitida.
+
+Regras:
+- Não invente colaboradores.
+- Não use o mesmo colaborador duas vezes na mesma data e período.
+- Distribua o trabalho de maneira equilibrada.
+- Quando não houver colaborador disponível, use null nos campos userCod e codUserFunc.
+- Retorne exatamente uma entrada por posição, inclusive funções repetidas.
+- Responda apenas com JSON válido.
+
+Formato obrigatório:
+{
+  "escalas": [
+    {
+      "data": "2026-10-20",
+      "periodo": "M",
+      "funcCod": 2,
+      "userCod": 1,
+      "codUserFunc": 1
+    }
+  ]
+}
+
+Posições:
+${JSON.stringify(disponibilidade)}
+      `,
+      config: { responseMimeType: 'application/json' }
+    })
+
+    let sugestao
+
+    try {
+      sugestao = JSON.parse(resposta.text)
+    } catch {
+      reply.code(502)
+      return { success: false, message: 'Resposta inválida do Gemini.' }
+    }
+
+    if (!Array.isArray(sugestao?.escalas) ||
+        sugestao.escalas.length !== disponibilidade.length) {
+      reply.code(502)
+      return { success: false, message: 'Quantidade de escalas inválida.' }
+    }
+
+    const restantes = [...disponibilidade]
+    const utilizados = new Set()
+    const resultadoFinal = []
+
+    for (const item of sugestao.escalas) {
+      const indice = restantes.findIndex(p =>
+        p.data === item.data &&
+        p.periodo === item.periodo &&
+        p.funcCod === Number(item.funcCod)
+      )
+
+      if (indice === -1) {
+        reply.code(502)
+        return { success: false, message: 'Posição inválida retornada pela IA.' }
+      }
+
+      const [posicao] = restantes.splice(indice, 1)
+      const userCod = item.userCod == null ? null : Number(item.userCod)
+      const codUserFunc = item.codUserFunc == null
+        ? null
+        : Number(item.codUserFunc)
+
+      const usuario = posicao.usuarios.find(u =>
+        u.userCod === userCod && u.codUserFunc === codUserFunc
+      )
+
+      const chave = `${posicao.data}|${posicao.periodo}|${userCod}`
+
+      if ((userCod !== null && !usuario) ||
+          (userCod === null && codUserFunc !== null) ||
+          (userCod !== null && utilizados.has(chave))) {
+        reply.code(502)
+        return { success: false, message: 'Atribuição inválida retornada pela IA.' }
+      }
+
+      if (userCod !== null) utilizados.add(chave)
+
+      resultadoFinal.push({
+        data: posicao.data,
+        periodo: posicao.periodo,
+        funcCod: posicao.funcCod,
+        userCod,
+        codUserFunc,
+        nome: usuario?.nome || null
+      })
+    }
+
+    return {
+      success: true,
+      message: 'Sugestão gerada. Revise antes de salvar.',
+      escalas: resultadoFinal
+    }
+
+  } catch (error) {
+    console.error('ERRO GERAESCALAIA:', error)
+
+    await log('error', 'geraescalaia_failed', {
+      message: error.message
+    })
+
+    reply.code(503)
+    return {
+      success: false,
+      message: 'Não foi possível gerar a escala com o Gemini.'
+    }
+  }
+})
 
 
 const start = async () => {

@@ -1,0 +1,306 @@
+
+.cad-escalas-page {
+  width: min(100%, 64rem);
+  min-height: 100vh;
+  margin: 0 auto;
+  padding: 2rem 2rem 7rem;
+  box-sizing: border-box;
+  font-family: 'Aptos', 'Segoe UI Variable', 'Segoe UI', sans-serif;
+}
+
+.cad-escalas-content {
+  width: 100%;
+}
+
+.cad-escalas-header {
+  margin-bottom: 1.5rem;
+  padding-bottom: 1rem;
+  border-bottom: 2px solid #a87518;
+}
+
+.cad-escalas-header p {
+  margin: 0 0 0.35rem;
+  color: #5a3a05;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.cad-escalas-header h1 {
+  margin: 0;
+  color: #352b1b;
+  font-size: 1.75rem;
+}
+
+.cad-escalas-section {
+  margin-bottom: 2rem;
+}
+
+.cad-escalas-section h2 {
+  margin: 0 0 1rem;
+  color: #352b1b;
+  font-size: 1.25rem;
+}
+
+.cad-escalas-description {
+  margin: 0 0 1rem;
+  color: #5a3a05;
+  font-size: 0.9rem;
+}
+
+.cad-escalas-form {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.cad-escalas-form label,
+.cad-escalas-field label {
+  color: #352b1b;
+  font-size: 0.875rem;
+  font-weight: 700;
+}
+
+.cad-escalas-form input,
+.cad-escalas-form select,
+.cad-escalas-field select {
+  width: 100%;
+  min-height: 2.9rem;
+  margin-bottom: 0.6rem;
+  padding: 0.7rem 0.9rem;
+  box-sizing: border-box;
+  border: 1px solid #d8c18a;
+  border-radius: 6px;
+  background: #fffdf8;
+  color: #352b1b;
+  font: inherit;
+}
+
+.cad-escalas-form input:focus,
+.cad-escalas-form select:focus,
+.cad-escalas-field select:focus {
+  border-color: #a87518;
+  outline: 2px solid rgba(168, 117, 24, 0.22);
+}
+
+.cad-escalas-function-selector {
+  display: flex;
+  align-items: end;
+  gap: 1rem;
+}
+
+.cad-escalas-field {
+  display: grid;
+  flex: 1;
+  gap: 0.45rem;
+}
+
+.cad-escalas-add {
+  min-height: 2.9rem;
+  margin-bottom: 0.6rem;
+  padding: 0.7rem 1.25rem;
+  border: 1px solid #5a3a05;
+  border-radius: 6px;
+  background: #5a3a05;
+  color: #fffdf8;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.cad-escalas-add:hover:not(:disabled) {
+  background: #a87518;
+}
+
+.cad-escalas-add:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.cad-escalas-list-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin: 1rem 0 0.75rem;
+}
+
+.cad-escalas-list-header h3 {
+  margin: 0;
+  color: #352b1b;
+  font-size: 1rem;
+}
+
+.cad-escalas-list-header span {
+  color: #5a3a05;
+  font-weight: 700;
+}
+
+.cad-escalas-list {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.cad-escalas-function-row {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  min-height: 3.75rem;
+  padding: 0.7rem 1rem;
+  border: 1px solid #d8c18a;
+  border-left: 4px solid #a87518;
+  border-radius: 6px;
+  background: #fffdf8;
+}
+
+.cad-escalas-number {
+  min-width: 2rem;
+  color: #5a3a05;
+  font-weight: 700;
+}
+
+.cad-escalas-function-name {
+  flex: 1;
+  color: #352b1b;
+}
+
+.cad-escalas-remove {
+  padding: 0.5rem 0.75rem;
+  border: 1px solid #a32828;
+  border-radius: 6px;
+  background: #fffdf8;
+  color: #a32828;
+  font: inherit;
+  cursor: pointer;
+}
+
+.cad-escalas-remove:hover {
+  background: #fce8e8;
+}
+
+.cad-escalas-empty {
+  padding: 1.5rem 1rem;
+  border: 1px dashed #d8c18a;
+  border-radius: 6px;
+  color: #5a3a05;
+  text-align: center;
+}
+
+.cad-escalas-error {
+  color: #a32828;
+}
+
+.cad-escalas-actions {
+  position: fixed;
+  z-index: 10;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  padding: 0.8rem 1.25rem;
+  border-top: 1px solid #d8c18a;
+  background: rgba(221, 221, 221, 0.96);
+}
+
+.cad-escalas-actions-inner {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  width: min(100%, 60rem);
+  margin: 0 auto;
+}
+
+.cad-escalas-button {
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  min-width: 8rem;
+  min-height: 2.8rem;
+  padding: 0.65rem 1.25rem;
+  border: 1px solid #5a3a05;
+  border-radius: 6px;
+  background: #fffdf8;
+  color: #5a3a05;
+  font: inherit;
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.cad-escalas-primary {
+  background: #5a3a05;
+  color: #fffdf8;
+}
+
+.cad-escalas-button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+@media (max-width: 520px) {
+  .cad-escalas-page {
+    padding: 1.25rem 1.25rem 6.5rem;
+  }
+
+  .cad-escalas-header h1 {
+    font-size: 1.4rem;
+  }
+
+  .cad-escalas-function-selector {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.5rem;
+  }
+
+  .cad-escalas-add {
+    width: 100%;
+  }
+
+  .cad-escalas-function-row {
+    gap: 0.5rem;
+    padding: 0.7rem;
+  }
+
+  .cad-escalas-actions-inner {
+    gap: 0.75rem;
+  }
+
+  .cad-escalas-button {
+    min-width: 0;
+    flex: 1;
+  }
+}
+
+
+/* Painel de seleção de colaboradores */
+
+.cad-escalas-user-panel {
+  margin: 10px 0 18px;
+  padding: 18px;
+  background: #fffdf8;
+  border: 1px solid #e1c990;
+  border-radius: 10px;
+}
+
+.cad-escalas-user-panel h4 {
+  margin: 0 0 14px;
+  color: #5a3a05;
+  font-size: 15px;
+}
+
+.cad-escalas-user-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.cad-escalas-user-option {
+  padding: 12px;
+  border: 1px solid #e1c990;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #5a3a05;
+  text-align: left;
+  cursor: pointer;
+}
+
+.cad-escalas-user-option:hover {
+  background: #f8edcf;
+}

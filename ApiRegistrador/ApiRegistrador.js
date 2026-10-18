@@ -476,14 +476,623 @@ app.put('/atualizarusuario/:userCod', async (request, reply) => {
   }
 })
 
-app.addHook('onClose', async () => {
-  await pool.end();
-  await log('info', 'api_closed')
+// Consulta colaboradores disponíveis por função e data
+app.get('/consultarusuariosdisponiveis', async (request, reply) => {
+  try {
+    const { userId, funcCod, data } = request.query || {};
+
+    const codigoFuncao = Number(funcCod);
+    const dataTexto = String(data || '');
+
+    const dataValida =
+      /^\d{4}-\d{2}-\d{2}$/.test(dataTexto) &&
+      !Number.isNaN(Date.parse(`${dataTexto}T00:00:00Z`)) &&
+      new Date(`${dataTexto}T00:00:00Z`)
+        .toISOString()
+        .slice(0, 10) === dataTexto;
+
+    if (
+      !userId ||
+      !Number.isInteger(codigoFuncao) ||
+      codigoFuncao < 1 ||
+      !dataValida
+    ) {
+      reply.code(400);
+      return {
+        success: false,
+        message: 'Informe usuário, função e data válidos.'
+      };
+    }
+
+    const resultado = await pool.query(
+      `
+      SELECT
+        U.USER_COD,
+        U.USER_NOME,
+        FU.FUNC_COD,
+        FU.COD_USER_FUNC
+      FROM USUARIO U
+      INNER JOIN FUNC_USER FU
+        ON FU.USER_COD = U.USER_COD
+        AND FU.EMP_ID = U.EMP_ID
+      WHERE U.EMP_ID = (
+        SELECT EMP_ID
+        FROM USUARIO
+        WHERE USER_FIREBASE_UID = $1
+        LIMIT 1
+      )
+      AND FU.FUNC_COD = $2
+      AND NOT EXISTS (
+        SELECT 1
+        FROM INDISPO_USER I
+        WHERE I.EMP_ID = U.EMP_ID
+          AND I.USER_COD = U.USER_COD
+          AND I.DT_INDISPO = $3::date
+      )
+      ORDER BY U.USER_NOME
+      `,
+      [userId, codigoFuncao, dataTexto]
+    );
+
+    return {
+      success: true,
+      usuarios: resultado.rows
+    };
+
+  } catch (error) {
+    await log('error', 'usuarios_disponiveis_failed', {
+      message: error.message
+    });
+
+    reply.code(503);
+    return {
+      success: false,
+      message: 'Erro ao consultar colaboradores disponíveis.'
+    };
+  }
 });
 
 
+app.get('/consultarconflitosescala', async (request, reply) => {
+  try {
+    const { userId, data, periodo } = request.query || {}
+
+    const dataTexto = String(data || '')
+    const dataObj = new Date(`${dataTexto}T00:00:00Z`)
+
+    const dataValida =
+      /^\d{4}-\d{2}-\d{2}$/.test(dataTexto) &&
+      !Number.isNaN(dataObj.getTime()) &&
+      dataObj.toISOString().slice(0, 10) === dataTexto
+
+    if (!userId || !dataValida || !['M', 'T', 'N'].includes(periodo)) {
+      reply.code(400)
+      return {
+        success: false,
+        message: 'Informe usuário, data e período válidos.'
+      }
+    }
+
+    const resultado = await pool.query(
+      `
+      SELECT DISTINCT FU.USER_COD
+      FROM ESCALA E
+      INNER JOIN ESC_ITEM EI
+        ON EI.ESC_COD = E.ESC_COD
+      INNER JOIN FUNC_USER FU
+        ON FU.COD_USER_FUNC = EI.ESC_USER_FUNC
+        AND FU.EMP_ID = E.EMP_ID
+      WHERE E.EMP_ID = (
+        SELECT EMP_ID
+        FROM USUARIO
+        WHERE USER_FIREBASE_UID = $1
+        LIMIT 1
+      )
+      AND E.ESC_DATA = $2::date
+      AND E.ESC_PERIODO = $3
+      `,
+      [userId, dataTexto, periodo]
+    )
+
+    return {
+      success: true,
+      usuariosOcupados: resultado.rows.map(
+        usuario => Number(usuario.user_cod)
+      )
+    }
+
+  } catch (error) {
+    await log('error', 'consultar_conflitos_escala_failed', {
+      message: error.message
+    })
+
+    reply.code(503)
+    return {
+      success: false,
+      message: 'Não foi possível consultar conflitos de escala.'
+    }
+  }
+})
+
+app.post('/inseriescalas', async (request, reply) => {
+  const { userId, data, periodo, itens } = request.body || {}
+
+  const dataTexto = String(data || '')
+  const dataConvertida = new Date(`${dataTexto}T00:00:00Z`)
+
+  const dataValida =
+    /^\d{4}-\d{2}-\d{2}$/.test(dataTexto) &&
+    !Number.isNaN(dataConvertida.getTime()) &&
+    dataConvertida.toISOString().slice(0, 10) === dataTexto
+
+  if (
+    !userId ||
+    !dataValida ||
+    !['M', 'T', 'N'].includes(periodo) ||
+    !Array.isArray(itens) ||
+    itens.length < 1 ||
+    itens.length > 30 ||
+    itens.some((item) =>
+      !Number.isSafeInteger(item.cod_user_func) ||
+      item.cod_user_func < 1
+    )
+  ) {
+    reply.code(400)
+    return {
+      success: false,
+      message: 'Informe data, período e colaboradores válidos (máximo 30).'
+    }
+  }
+
+  const codigos = itens.map((item) => item.cod_user_func)
+
+  if (new Set(codigos).size !== codigos.length) {
+    reply.code(400)
+    return {
+      success: false,
+      message: 'Existem vínculos de colaboradores repetidos.'
+    }
+  }
+
+  let client
+
+  try {
+    client = await pool.connect()
+    await client.query('BEGIN')
+
+    const { rows: empresas } = await client.query(
+      `SELECT EMP_ID
+       FROM USUARIO
+       WHERE USER_FIREBASE_UID = $1
+       LIMIT 1`,
+      [userId]
+    )
+
+    if (!empresas.length) {
+      await client.query('ROLLBACK')
+      reply.code(404)
+      return {
+        success: false,
+        message: 'Usuário não vinculado a uma empresa.'
+      }
+    }
+
+    const empId = empresas[0].emp_id
+
+    // Evita gravações concorrentes conflitantes na mesma empresa e data.
+    await client.query(
+      `SELECT pg_advisory_xact_lock($1, hashtext($2))`,
+      [empId, dataTexto]
+    )
+
+    const { rows: colaboradores } = await client.query(
+      `SELECT
+         FU.COD_USER_FUNC,
+         FU.USER_COD
+       FROM FUNC_USER FU
+       INNER JOIN USUARIO U
+         ON U.EMP_ID = FU.EMP_ID
+         AND U.USER_COD = FU.USER_COD
+       WHERE FU.EMP_ID = $1
+         AND FU.COD_USER_FUNC = ANY($2::integer[])
+         AND NOT EXISTS (
+           SELECT 1
+           FROM INDISPO_USER I
+           WHERE I.EMP_ID = FU.EMP_ID
+             AND I.USER_COD = FU.USER_COD
+             AND I.DT_INDISPO = $3::date
+         )`,
+      [empId, codigos, dataTexto]
+    )
+
+    if (colaboradores.length !== codigos.length) {
+      await client.query('ROLLBACK')
+      reply.code(400)
+      return {
+        success: false,
+        message: 'Um ou mais colaboradores não pertencem à empresa ou estão indisponíveis.'
+      }
+    }
+
+    const usuarios = colaboradores.map((item) => item.user_cod)
+
+    if (new Set(usuarios).size !== usuarios.length) {
+      await client.query('ROLLBACK')
+      reply.code(400)
+      return {
+        success: false,
+        message: 'Um colaborador foi selecionado mais de uma vez.'
+      }
+    }
+
+    const { rows: conflitos } = await client.query(
+      `SELECT DISTINCT FU.USER_COD
+       FROM ESCALA E
+       INNER JOIN ESC_ITEM EI ON EI.ESC_COD = E.ESC_COD
+       INNER JOIN FUNC_USER FU
+         ON FU.COD_USER_FUNC = EI.ESC_USER_FUNC
+       WHERE E.EMP_ID = $1
+         AND E.ESC_DATA = $2::date
+         AND E.ESC_PERIODO = $3
+         AND FU.USER_COD = ANY($4::integer[])
+         AND FU.EMP_ID = E.EMP_ID`,
+      [empId, dataTexto, periodo, usuarios]
+    )
+
+    if (conflitos.length) {
+      await client.query('ROLLBACK')
+      reply.code(409)
+      return {
+        success: false,
+        message: 'Um ou mais colaboradores já estão escalados nesta data e período.'
+      }
+    }
+
+    const { rows: escalas } = await client.query(
+      `INSERT INTO ESCALA (EMP_ID, ESC_DATA, ESC_PERIODO)
+       VALUES ($1, $2::date, $3)
+       RETURNING ESC_COD, ESC_DATA, ESC_PERIODO`,
+      [empId, dataTexto, periodo]
+    )
+
+    const escala = escalas[0]
+
+    for (const codUserFunc of codigos) {
+      await client.query(
+        `INSERT INTO ESC_ITEM (ESC_COD, ESC_USER_FUNC)
+         VALUES ($1, $2)`,
+        [escala.esc_cod, codUserFunc]
+      )
+    }
+
+    await client.query('COMMIT')
+
+    return {
+      success: true,
+      message: 'Escala cadastrada com sucesso.',
+      escala
+    }
+  } catch (error) {
+    if (client) {
+      await client.query('ROLLBACK').catch(() => {})
+    }
+
+    await log('error', 'escala_insert_failed', {
+      code: error.code || null,
+      message: error.message
+    })
+
+    reply.code(503)
+    return {
+      success: false,
+      message: 'Não foi possível cadastrar a escala.'
+    }
+  } finally {
+    client?.release()
+  }
+})
 
 
+app.get('/consultarescala/:escCod', async (request, reply) => {
+  const userId = String(request.query?.userId || '')
+  const escCod = Number(request.params.escCod)
+
+  if (!userId || !Number.isSafeInteger(escCod) || escCod < 1) {
+    reply.code(400)
+    return {
+      success: false,
+      message: 'Informe um código de escala válido.'
+    }
+  }
+
+  try {
+    const { rows: escalas } = await pool.query(
+      `SELECT
+         E.ESC_COD,
+         TO_CHAR(E.ESC_DATA, 'YYYY-MM-DD') AS ESC_DATA,
+         E.ESC_PERIODO
+       FROM ESCALA E
+       INNER JOIN USUARIO AUT
+         ON AUT.EMP_ID = E.EMP_ID
+         AND AUT.USER_FIREBASE_UID = $1
+       WHERE E.ESC_COD = $2
+       LIMIT 1`,
+      [userId, escCod]
+    )
+
+    if (!escalas.length) {
+      reply.code(404)
+      return {
+        success: false,
+        message: 'Escala não encontrada nesta empresa.'
+      }
+    }
+
+    const { rows: itens } = await pool.query(
+      `SELECT
+         EI.ID,
+         FU.FUNC_COD,
+         F.FUNC_DESC,
+         FU.USER_COD,
+         U.USER_NOME,
+         FU.COD_USER_FUNC
+       FROM ESC_ITEM EI
+       INNER JOIN FUNC_USER FU
+         ON FU.COD_USER_FUNC = EI.ESC_USER_FUNC
+       INNER JOIN FUNCAO F
+         ON F.FUNC_COD = FU.FUNC_COD
+         AND F.EMP_ID = FU.EMP_ID
+       INNER JOIN USUARIO U
+         ON U.USER_COD = FU.USER_COD
+         AND U.EMP_ID = FU.EMP_ID
+       WHERE EI.ESC_COD = $1
+         AND FU.EMP_ID = (
+           SELECT EMP_ID
+           FROM USUARIO
+           WHERE USER_FIREBASE_UID = $2
+           LIMIT 1
+         )
+       ORDER BY EI.ID`,
+      [escCod, userId]
+    )
+
+    return {
+      success: true,
+      escala: escalas[0],
+      itens
+    }
+  } catch (error) {
+    await log('error', 'consultarescala_failed', {
+      code: error.code || null,
+      message: error.message
+    })
+
+    reply.code(503)
+    return {
+      success: false,
+      message: 'Não foi possível consultar a escala.'
+    }
+  }
+})
+
+
+app.put('/atualizaescalas/:escCod', async (request, reply) => {
+  const escCod = Number(request.params.escCod)
+  const { userId, data, periodo, itens } = request.body || {}
+
+  const dataTexto = String(data || '')
+  const dataConvertida = new Date(`${dataTexto}T00:00:00Z`)
+
+  const dataValida =
+    /^\d{4}-\d{2}-\d{2}$/.test(dataTexto) &&
+    !Number.isNaN(dataConvertida.getTime()) &&
+    dataConvertida.toISOString().slice(0, 10) === dataTexto
+
+  if (
+    !Number.isSafeInteger(escCod) ||
+    escCod < 1 ||
+    !userId ||
+    !dataValida ||
+    !['M', 'T', 'N'].includes(periodo) ||
+    !Array.isArray(itens) ||
+    itens.length < 1 ||
+    itens.length > 30 ||
+    itens.some(
+      (item) =>
+        !Number.isSafeInteger(item?.cod_user_func) ||
+        item.cod_user_func < 1
+    )
+  ) {
+    reply.code(400)
+    return {
+      success: false,
+      message: 'Informe código, data, período e colaboradores válidos (máximo 30).'
+    }
+  }
+
+  const codigos = itens.map((item) => item.cod_user_func)
+
+  if (new Set(codigos).size !== codigos.length) {
+    reply.code(400)
+    return {
+      success: false,
+      message: 'Existem vínculos de colaboradores repetidos.'
+    }
+  }
+
+  let client
+
+  try {
+    client = await pool.connect()
+    await client.query('BEGIN')
+
+    const { rows: empresas } = await client.query(
+      `SELECT EMP_ID
+       FROM USUARIO
+       WHERE USER_FIREBASE_UID = $1
+       LIMIT 1`,
+      [userId]
+    )
+
+    if (!empresas.length) {
+      await client.query('ROLLBACK')
+      reply.code(404)
+      return {
+        success: false,
+        message: 'Usuário não vinculado a uma empresa.'
+      }
+    }
+
+    const empId = empresas[0].emp_id
+
+    // Impede alterações simultâneas na mesma escala.
+    const { rows: escalas } = await client.query(
+      `SELECT ESC_COD
+       FROM ESCALA
+       WHERE ESC_COD = $1
+         AND EMP_ID = $2
+       FOR UPDATE`,
+      [escCod, empId]
+    )
+
+    if (!escalas.length) {
+      await client.query('ROLLBACK')
+      reply.code(404)
+      return {
+        success: false,
+        message: 'Escala não encontrada nesta empresa.'
+      }
+    }
+
+    // Segue o mesmo bloqueio usado no cadastro de escalas.
+    await client.query(
+      `SELECT pg_advisory_xact_lock($1, hashtext($2))`,
+      [empId, dataTexto]
+    )
+
+    // Verifica se todos os colaboradores pertencem à empresa
+    // e se estão disponíveis na data informada.
+    const { rows: colaboradores } = await client.query(
+      `SELECT FU.COD_USER_FUNC, FU.USER_COD
+       FROM FUNC_USER FU
+       INNER JOIN USUARIO U
+         ON U.EMP_ID = FU.EMP_ID
+         AND U.USER_COD = FU.USER_COD
+       WHERE FU.EMP_ID = $1
+         AND FU.COD_USER_FUNC = ANY($2::integer[])
+         AND NOT EXISTS (
+           SELECT 1
+           FROM INDISPO_USER I
+           WHERE I.EMP_ID = FU.EMP_ID
+             AND I.USER_COD = FU.USER_COD
+             AND I.DT_INDISPO = $3::date
+         )`,
+      [empId, codigos, dataTexto]
+    )
+
+    if (colaboradores.length !== codigos.length) {
+      await client.query('ROLLBACK')
+      reply.code(400)
+      return {
+        success: false,
+        message: 'Um ou mais colaboradores não pertencem à empresa ou estão indisponíveis.'
+      }
+    }
+
+    const usuarios = colaboradores.map((item) => item.user_cod)
+
+    if (new Set(usuarios).size !== usuarios.length) {
+      await client.query('ROLLBACK')
+      reply.code(400)
+      return {
+        success: false,
+        message: 'Um colaborador foi selecionado mais de uma vez.'
+      }
+    }
+
+    // Impede conflito com outras escalas.
+    // A própria escala que está sendo atualizada é ignorada.
+    const { rows: conflitos } = await client.query(
+      `SELECT DISTINCT FU.USER_COD
+       FROM ESCALA E
+       INNER JOIN ESC_ITEM EI
+         ON EI.ESC_COD = E.ESC_COD
+       INNER JOIN FUNC_USER FU
+         ON FU.COD_USER_FUNC = EI.ESC_USER_FUNC
+       WHERE E.EMP_ID = $1
+         AND E.ESC_DATA = $2::date
+         AND E.ESC_PERIODO = $3
+         AND E.ESC_COD <> $4
+         AND FU.USER_COD = ANY($5::integer[])
+         AND FU.EMP_ID = E.EMP_ID`,
+      [empId, dataTexto, periodo, escCod, usuarios]
+    )
+
+    if (conflitos.length) {
+      await client.query('ROLLBACK')
+      reply.code(409)
+      return {
+        success: false,
+        message: 'Um ou mais colaboradores já estão escalados nesta data e período.'
+      }
+    }
+
+    // Atualiza os dados principais da escala.
+    const { rows: atualizadas } = await client.query(
+      `UPDATE ESCALA
+       SET ESC_DATA = $1::date,
+           ESC_PERIODO = $2
+       WHERE ESC_COD = $3
+         AND EMP_ID = $4
+       RETURNING
+         ESC_COD,
+         ESC_DATA,
+         ESC_PERIODO`,
+      [dataTexto, periodo, escCod, empId]
+    )
+
+    // Substitui os colaboradores e funções anteriores
+    // pelos que foram selecionados na tela.
+    await client.query(
+      `DELETE FROM ESC_ITEM
+       WHERE ESC_COD = $1`,
+      [escCod]
+    )
+
+    for (const codUserFunc of codigos) {
+      await client.query(
+        `INSERT INTO ESC_ITEM (ESC_COD, ESC_USER_FUNC)
+         VALUES ($1, $2)`,
+        [escCod, codUserFunc]
+      )
+    }
+
+    await client.query('COMMIT')
+
+    return {
+      success: true,
+      message: 'Escala atualizada com sucesso.',
+      escala: atualizadas[0]
+    }
+  } catch (error) {
+    if (client) {
+      await client.query('ROLLBACK').catch(() => {})
+    }
+
+    await log('error', 'escala_update_failed', {
+      code: error.code || null,
+      message: error.message
+    })
+
+    reply.code(503)
+    return {
+      success: false,
+      message: 'Não foi possível atualizar a escala.'
+    }
+  } finally {
+    client?.release()
+  }
+})
 
 
 const start = async () => {
