@@ -139,70 +139,70 @@ function GerarEscalasIA() {
         setFuncaoSelecionada('')
     }
 
-    
-async function abrirSelecao(escala, funcao) {
-  if (gerandoIA || salvando) return
-  if (selecaoAberta === funcao.id) {
-    setSelecaoAberta(null)
-    return
-  }
 
-  const token = localStorage.getItem('token')
-
-  if (!token) {
-    navigate('/Login')
-    return
-  }
-
-  setSelecaoAberta(funcao.id)
-  setUsuariosDisponiveis([])
-  setErroUsuarios('')
-  setCarregandoUsuarios(true)
-
-  try {
-    const parametros = new URLSearchParams({
-      funcCod: String(funcao.func_cod),
-      data: escala.data
-    })
-
-    const response = await fetch(
-      `http://${APIGERENCIADOR}/consultarusuariosdisponiveis?${parametros}`,
-      {
-        headers: {
-          Authorization: `Bearer ${token}`
+    async function abrirSelecao(escala, funcao) {
+        if (gerandoIA || salvando) return
+        if (selecaoAberta === funcao.id) {
+            setSelecaoAberta(null)
+            return
         }
-      }
-    )
 
-    if (response.status === 401) {
-      navigate('/Login')
-      return
+        const token = localStorage.getItem('token')
+
+        if (!token) {
+            navigate('/Login')
+            return
+        }
+
+        setSelecaoAberta(funcao.id)
+        setUsuariosDisponiveis([])
+        setErroUsuarios('')
+        setCarregandoUsuarios(true)
+
+        try {
+            const parametros = new URLSearchParams({
+                funcCod: String(funcao.func_cod),
+                data: escala.data
+            })
+
+            const response = await fetch(
+                `http://${APIGERENCIADOR}/consultarusuariosdisponiveis?${parametros}`,
+                {
+                    headers: {
+                        Authorization: `Bearer ${token}`
+                    }
+                }
+            )
+
+            if (response.status === 401) {
+                navigate('/Login')
+                return
+            }
+
+            const resultado = await response.json()
+
+            if (!response.ok || !Array.isArray(resultado.usuarios)) {
+                throw new Error(
+                    resultado.message || 'Erro ao consultar colaboradores.'
+                )
+            }
+
+            const usuariosFiltrados = resultado.usuarios.filter(
+                (usuario) =>
+                    !escala.funcoes.some(
+                        (item) =>
+                            item.id !== funcao.id &&
+                            String(item.user_cod) === String(usuario.user_cod)
+                    )
+            )
+
+            setUsuariosDisponiveis(usuariosFiltrados)
+        } catch (error) {
+            setErroUsuarios(error.message)
+        } finally {
+            setCarregandoUsuarios(false)
+        }
     }
-
-    const resultado = await response.json()
-
-    if (!response.ok || !Array.isArray(resultado.usuarios)) {
-      throw new Error(
-        resultado.message || 'Erro ao consultar colaboradores.'
-      )
-    }
-
-    const usuariosFiltrados = resultado.usuarios.filter(
-      (usuario) =>
-        !escala.funcoes.some(
-          (item) =>
-            item.id !== funcao.id &&
-            String(item.user_cod) === String(usuario.user_cod)
-        )
-    )
-
-    setUsuariosDisponiveis(usuariosFiltrados)
-  } catch (error) {
-    setErroUsuarios(error.message)
-  } finally {
-    setCarregandoUsuarios(false)
-  }
-}
 
     function selecionarColaborador(escalaId, funcaoId, usuario) {
         if (gerandoIA || salvando || salvas.includes(escalaId)) return
@@ -239,6 +239,17 @@ async function abrirSelecao(escala, funcao) {
         setEscalas((anteriores) =>
             anteriores.filter((escala) => escala.id !== id)
         )
+    }
+
+    function removerFuncaoDaEscala(escalaId, funcaoId) {
+        if (gerandoIA || salvando || salvas.includes(escalaId)) return
+        setMensagemIA('')
+        setSelecaoAberta(null)
+        setEscalas((anteriores) => anteriores.map((escala) =>
+            escala.id === escalaId
+                ? { ...escala, funcoes: escala.funcoes.filter((funcao) => funcao.id !== funcaoId) }
+                : escala
+        ).filter((escala) => escala.funcoes.length > 0))
     }
 
     async function gerarComIA() {
@@ -323,7 +334,7 @@ async function abrirSelecao(escala, funcao) {
                 }
                 if (original.funcao.origem === 'manual' &&
                     (Number(item.userCod) !== Number(original.funcao.user_cod) ||
-                     Number(item.codUserFunc) !== Number(original.funcao.cod_user_func))) {
+                        Number(item.codUserFunc) !== Number(original.funcao.cod_user_func))) {
                     throw new Error('A API tentou alterar uma escolha manual.')
                 }
                 recebidas.set(item.indice, item)
@@ -475,7 +486,30 @@ async function abrirSelecao(escala, funcao) {
     }
 
     return (
-        <main className="cad-escalas-page">
+        <main className="cad-escalas-page" aria-busy={gerandoIA || salvando}>
+            {(gerandoIA || salvando) && (
+                <div
+                    role="status"
+                    aria-live="polite"
+                    style={{
+                        position: 'fixed',
+                        inset: 0,
+                        zIndex: 9999,
+                        backgroundColor: 'rgba(255, 255, 255, 0.9)',
+                        display: 'flex',
+                        justifyContent: 'center',
+                        alignItems: 'center',
+                        fontSize: '22px',
+                        fontWeight: 'bold',
+                        color: '#333'
+                    }}
+                >
+                    {gerandoIA
+                        ? 'Gerando informações, aguarde...'
+                        : 'Salvando escalas, aguarde...'}
+                </div>
+            )}
+
             <section className="cad-escalas-content">
                 <header className="cad-escalas-header">
                     <p>INTELIGÊNCIA ARTIFICIAL</p>
@@ -486,24 +520,28 @@ async function abrirSelecao(escala, funcao) {
                     <h2>Adicionar escala ao planejamento</h2>
 
                     <div className="cad-escalas-form">
-                        <label htmlFor="ia-data">Data</label>
-                        <input
-                            id="ia-data"
-                            type="date"
-                            value={data}
-                            onChange={(event) => setData(event.target.value)}
-                        />
+                        <div className="cad-escalas-field">
+                            <label htmlFor="ia-data">Data</label>
+                            <input
+                                id="ia-data"
+                                type="date"
+                                value={data}
+                                onChange={(event) => setData(event.target.value)}
+                            />
+                        </div>
 
-                        <label htmlFor="ia-periodo">Período</label>
-                        <select
-                            id="ia-periodo"
-                            value={periodo}
-                            onChange={(event) => setPeriodo(event.target.value)}
-                        >
-                            <option value="M">Manhã</option>
-                            <option value="T">Tarde</option>
-                            <option value="N">Noite</option>
-                        </select>
+                        <div className="cad-escalas-field">
+                            <label htmlFor="ia-periodo">Período</label>
+                            <select
+                                id="ia-periodo"
+                                value={periodo}
+                                onChange={(event) => setPeriodo(event.target.value)}
+                            >
+                                <option value="M">Manhã</option>
+                                <option value="T">Tarde</option>
+                                <option value="N">Noite</option>
+                            </select>
+                        </div>
                     </div>
 
                     <div className="cad-escalas-function-selector">
@@ -563,91 +601,75 @@ async function abrirSelecao(escala, funcao) {
                 </section>
 
                 <section className="cad-escalas-section">
-                    <h2>Escalas planejadas ({escalas.length})</h2>
-
-                    {escalas.length === 0 ? (
-                        <p className="cad-escalas-empty">
-                            Nenhuma escala adicionada.
-                        </p>
-                    ) : (
-                        escalas.map((escala) => (
-                            <div
-                                key={escala.id}
-                                className="cad-escalas-function-row"
-                                style={{ marginBottom: 15 }}
-                            >
-                                <div>
-                                    <strong>
-                                        {escala.data} — {nomePeriodo[escala.periodo]} {salvas.includes(escala.id) ? '— Salva' : '— Pendente'}
-                                    </strong>
-                                    {escala.funcoes.map((funcao) => (
-                                        
-<div key={funcao.id} style={{ marginTop: 12 }}>
-  <strong>{funcao.func_desc}</strong>
-
-  <p>
-    {funcao.user_nome
-      ? `Colaborador: ${funcao.user_nome} (${funcao.origem === 'ia' ? 'Sugestão da IA' : 'Manual'})`
-      : 'Nenhum colaborador selecionado'}
-  </p>
-
-  <button
-    type="button"
-    className="cad-escalas-add"
-    onClick={() => abrirSelecao(escala, funcao)}
-    disabled={gerandoIA || salvando || salvas.includes(escala.id)}
-  >
-    Selecionar colaborador
-  </button>
-
-  {selecaoAberta === funcao.id && (
-    <div className="cad-escalas-user-panel">
-      <h4>Colaboradores disponíveis</h4>
-
-      {carregandoUsuarios ? (
-        <p>Carregando colaboradores...</p>
-      ) : erroUsuarios ? (
-        <p className="cad-escalas-error">{erroUsuarios}</p>
-      ) : usuariosDisponiveis.length === 0 ? (
-        <p>Nenhum colaborador disponível.</p>
-      ) : (
-        usuariosDisponiveis.map((usuario) => (
-          <button
-            key={usuario.cod_user_func}
-            type="button"
-            className="cad-escalas-user-option"
-            onClick={() => selecionarColaborador(escala.id, funcao.id, usuario)}
-            disabled={gerandoIA || salvando}
-          >
-            {usuario.user_nome}
-          </button>
-        ))
-      )}
-    </div>
-  )}
-</div>
-
-                                    ))}
+                {escalas.length === 0 ? (
+                    <p className="cad-escalas-empty">Nenhuma escala adicionada.</p>
+                ) : escalas.map((escala) => (
+                    <div className="ia-plano" key={escala.id}>
+                        <div className="ia-plano-topo">
+                            <div className="ia-plano-identificacao">
+                                <strong>{escala.data}</strong>
+                                <span>{nomePeriodo[escala.periodo]}</span>
+                                <span className="ia-plano-status">
+                                    {salvas.includes(escala.id) ? 'Salva' : 'Pendente'}
+                                </span>
+                            </div>
+                            <button type="button" className="cad-escalas-remove"
+                                onClick={() => removerEscala(escala.id)}
+                                disabled={gerandoIA || salvando || salvas.includes(escala.id)}>
+                                Excluir escala
+                            </button>
+                        </div>
+                        <div className="ia-plano-cabecalho">
+                            <strong>Função</strong><strong>Usuário</strong><span />
+                        </div>
+                        {escala.funcoes.map((funcao) => (
+                            <div className="ia-plano-linha" key={funcao.id}>
+                                <span className="ia-plano-funcao">{funcao.func_desc}</span>
+                                <div className="ia-plano-usuario">
+                                    <button type="button" className="ia-plano-usuario-campo"
+                                        aria-expanded={selecaoAberta === funcao.id}
+                                        onClick={() => abrirSelecao(escala, funcao)}
+                                        disabled={gerandoIA || salvando || salvas.includes(escala.id)}>
+                                        <span>{funcao.user_nome || 'Selecionar usuário'}</span>
+                                        <span aria-hidden="true">⌄</span>
+                                    </button>
+                                    {selecaoAberta === funcao.id && (
+                                        <div className="cad-escalas-user-panel ia-plano-opcoes">
+                                            <h4>Colaboradores disponíveis</h4>
+                                            {carregandoUsuarios ? (
+                                                <p>Carregando colaboradores...</p>
+                                            ) : erroUsuarios ? (
+                                                <p className="cad-escalas-error">{erroUsuarios}</p>
+                                            ) : usuariosDisponiveis.length === 0 ? (
+                                                <p>Nenhum colaborador disponível.</p>
+                                            ) : usuariosDisponiveis.map((usuario) => (
+                                                <button key={usuario.cod_user_func} type="button"
+                                                    className="cad-escalas-user-option"
+                                                    onClick={() => selecionarColaborador(escala.id, funcao.id, usuario)}
+                                                    disabled={gerandoIA || salvando}>
+                                                    {usuario.user_nome}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    )}
                                 </div>
-
-                                <button
-                                    type="button"
-                                    className="cad-escalas-remove"
-                                    onClick={() => removerEscala(escala.id)}
-                                    disabled={gerandoIA || salvando || salvas.includes(escala.id)}
-                                >
-                                    Remover escala
+                                <button type="button" className="cad-escalas-remove"
+                                    onClick={() => removerFuncaoDaEscala(escala.id, funcao.id)}
+                                    disabled={gerandoIA || salvando || salvas.includes(escala.id)}>
+                                    Excluir função
                                 </button>
                             </div>
-                        ))
-                    )}
-                </section>
+                        ))}
+                    </div>
+                ))}
+            </section>
 
-                <section className="cad-escalas-section">
-                    <h2>Gerar sugestões</h2>
-                    <p>O Gemini preencherá apenas as vagas não fixadas manualmente. Nada será salvo automaticamente.</p>
-                    {erroIA && <p className="cad-escalas-error" role="alert">{erroIA}</p>}
-                    {mensagemIA && <p role="status">{mensagemIA}</p>}
+            <div className="ia-acoes-rodape">
+                <Link className="cad-escalas-button" to="/ConsEscalas">
+                    Voltar
+                </Link>
+
+                <div className="ia-acoes-direita">
                     <button
                         type="button"
                         className="cad-escalas-button"
@@ -656,35 +678,31 @@ async function abrirSelecao(escala, funcao) {
                     >
                         {gerandoIA ? 'Gerando sugestões...' : 'Gerar com IA'}
                     </button>
-                </section>
 
-                <section className="cad-escalas-section">
-                    <h2>Salvar escalas</h2>
-                    <p>Revise todas as vagas. Somente escalas completas serão cadastradas.</p>
-                    {erroSalvar && <p className="cad-escalas-error" role="alert">{erroSalvar}</p>}
-                    {mensagemSalvar && <p role="status">{mensagemSalvar}</p>}
-                    {resultadoIncerto && (
-                        <p role="alert">
-                            O resultado de uma gravação é incerto. Consulte as escalas cadastradas
-                            antes de realizar qualquer nova tentativa. Recarregue a página após conferir.
-                        </p>
-                    )}
                     <button
                         type="button"
-                        className="cad-escalas-button"
+                        className="cad-escalas-button cad-escalas-primary"
                         onClick={salvarEscalas}
                         disabled={salvando || gerandoIA || resultadoIncerto ||
                             escalas.length === 0 || escalas.every((escala) => salvas.includes(escala.id))}
                     >
                         {salvando ? 'Salvando escalas...' : 'Salvar escalas'}
                     </button>
-                </section>
+                </div>
+            </div>
 
-                <Link className="cad-escalas-button" to="/ConsEscalas">
-                    Voltar
-                </Link>
-            </section>
-        </main>
+            {erroIA && <p className="cad-escalas-error" role="alert">{erroIA}</p>}
+            {mensagemIA && <p role="status">{mensagemIA}</p>}
+            {erroSalvar && <p className="cad-escalas-error" role="alert">{erroSalvar}</p>}
+            {mensagemSalvar && <p role="status">{mensagemSalvar}</p>}
+            {resultadoIncerto && (
+                <p role="alert">
+                    O resultado de uma gravação é incerto. Consulte as escalas cadastradas
+                    antes de realizar qualquer nova tentativa. Recarregue a página após conferir.
+                </p>
+            )}
+        </section>
+        </main >
     )
 }
 

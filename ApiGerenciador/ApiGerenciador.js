@@ -2,13 +2,13 @@ import fastify from 'fastify'
 import cors from '@fastify/cors'
 import { ADDRESS_WEB, ADDRESS_API, PORT_API, KEY_FIREBASE_API, SAVE_LOG } from './config-apigerenciador.js'
 import { createApiLogger } from '../apiLogger.js'
-import { GoogleGenAI } from '@google/genai'
 import { loadEnvFile } from 'node:process'
 loadEnvFile()
 
 const app = fastify({ logger: false });
 const log = createApiLogger(import.meta.url, 'ApiGerenciador', SAVE_LOG)
 const API_REGISTRADOR_URL = process.env.API_REGISTRADOR_URL || 'http://127.0.0.1:3334';
+const API_IA_URL = process.env.API_IA_URL || 'http://127.0.0.1:3335';
 
 async function obterUserId(token) {
   if (!token) return false;
@@ -863,15 +863,7 @@ app.post('/geraescalaia', async (request, reply) => {
 
     // Quando todas as posições foram preenchidas manualmente, não é necessário chamar o Gemini.
     if (disponibilidade.length > 0) {
-      if (!process.env.GEMINI_API_KEY) {
-        reply.code(503)
-        return { success: false, message: 'Chave do Gemini não configurada.' }
-      }
-
-      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY })
-      const resposta = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
-        contents: `Você é responsável por sugerir escalas de trabalho.
+            const contents = `Você é responsável por sugerir escalas de trabalho.
 Para cada posição escolha somente um colaborador da lista permitida.
 Não invente colaboradores. Não use o mesmo colaborador duas vezes na mesma data e período.
 Distribua o trabalho de maneira equilibrada.
@@ -879,9 +871,24 @@ Quando não houver colaborador disponível, use null em userCod e codUserFunc.
 Retorne exatamente uma entrada por posição, mantendo o campo indice de cada posição.
 Responda apenas com JSON válido no formato:
 {"escalas":[{"indice":0,"userCod":1,"codUserFunc":1}]}
-Posições: ${JSON.stringify(disponibilidade)}`,
-        config: { responseMimeType: 'application/json' }
+Posições: ${JSON.stringify(disponibilidade)}`
+
+      const response = await fetch(`${API_IA_URL}/gerar`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contents }),
+        signal: AbortSignal.timeout(65000)
       })
+
+      const resposta = await response.json()
+
+      if (!response.ok || !resposta.success) {
+        reply.code(502)
+        return {
+          success: false,
+          message: resposta.message || 'Falha na comunicação com a ApiIa.'
+        }
+      }
 
       let sugestao
       try {

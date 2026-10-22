@@ -304,3 +304,493 @@
 .cad-escalas-user-option:hover {
   background: #f8edcf;
 }
+
+/* Organização dos campos e botões da geração com IA */
+
+.cad-escalas-function-selector {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  margin-top: 20px;
+  margin-bottom: 24px;
+}
+
+.cad-escalas-function-selector > select {
+  flex: 1;
+  min-width: 0;
+  height: 48px;
+  padding: 10px 14px;
+  border: 1px solid #d8c18a;
+  border-radius: 6px;
+  background: #fffdf8;
+  color: #352b1b;
+  font: inherit;
+}
+
+.cad-escalas-function-selector > .cad-escalas-add {
+  min-height: 48px;
+  margin-bottom: 0;
+  white-space: nowrap;
+}
+
+.cad-escalas-function-selector > select:focus {
+  border-color: #a87518;
+  outline: 2px solid rgba(168, 117, 24, 0.22);
+}
+
+@media (max-width: 520px) {
+  .cad-escalas-function-selector {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .cad-escalas-function-selector > select,
+  .cad-escalas-function-selector > .cad-escalas-add {
+    width: 100%;
+  }
+}
+
+/* Layout compacto da geração de escalas */
+
+.cad-escalas-page {
+  width: min(100%, 68rem);
+  padding: 2rem 2.5rem 7rem;
+}
+
+/* Data e período lado a lado */
+.cad-escalas-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 20px;
+  row-gap: 8px;
+}
+
+/* Campos organizados */
+.cad-escalas-form input,
+.cad-escalas-form select {
+  min-height: 44px;
+  margin-bottom: 12px;
+}
+
+/* Seleção de funções */
+.cad-escalas-function-selector {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 12px 0 22px;
+}
+
+.cad-escalas-function-selector > select {
+  flex: 1;
+  min-width: 0;
+  height: 44px;
+  padding: 10px 14px;
+  border: 1px solid #d8c18a;
+  border-radius: 6px;
+  background: #fffdf8;
+  color: #352b1b;
+  font: inherit;
+}
+
+/* Botões menores */
+.cad-escalas-add {
+  min-height: 42px;
+  padding: 9px 16px;
+  font-size: 14px;
+  margin-bottom: 0;
+  white-space: nowrap;
+}
+
+.cad-escalas-button {
+  min-height: 42px;
+  padding: 9px 16px;
+  font-size: 14px;
+}
+
+/* Espaçamento das seções */
+.cad-escalas-section {
+  margin-bottom: 24px;
+}
+
+.cad-escalas-list-header {
+  margin: 18px 0 12px;
+}
+
+/* Celulares */
+@media (max-width: 600px) {
+  .cad-escalas-page {
+    padding: 1.25rem 1.25rem 7rem;
+  }
+
+  .cad-escalas-form {
+    grid-template-columns: 1fr;
+  }
+
+  .cad-escalas-function-selector {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .cad-escalas-function-selector > select,
+  .cad-escalas-function-selector > .cad-escalas-add {
+    width: 100%;
+  }
+}
+
+/* Ajustes da geração de escalas para mobile */
+
+@media (max-width: 600px) {
+
+  .cad-escalas-page {
+    width: 100%;
+    padding: 20px 16px 90px;
+  }
+
+  .cad-escalas-header h1 {
+    font-size: 1.5rem;
+  }
+
+  .cad-escalas-section h2 {
+    font-size: 1.15rem;
+  }
+
+  /* Data e período lado a lado */
+  .cad-escalas-form {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 12px;
+  }
+
+  .cad-escalas-form > .cad-escalas-field {
+    min-width: 0;
+  }
+
+  .cad-escalas-form input,
+  .cad-escalas-form select {
+    width: 100%;
+    min-width: 0;
+    min-height: 44px;
+    padding: 8px;
+    font-size: 14px;
+  }
+
+  /* Seleção de função */
+  .cad-escalas-function-selector {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+    margin: 12px 0 20px;
+  }
+
+  .cad-escalas-function-selector > select {
+    width: 100%;
+    min-height: 44px;
+  }
+
+  /* Botões menores */
+  .cad-escalas-add {
+    width: auto;
+    min-height: 40px;
+    padding: 9px 14px;
+    font-size: 13px;
+    white-space: normal;
+  }
+
+  .cad-escalas-function-selector > .cad-escalas-add {
+    width: auto;
+    align-self: flex-end;
+  }
+
+  /* Botão de adicionar escala */
+  .cad-escalas-section > .cad-escalas-add {
+    width: auto;
+    max-width: 100%;
+  }
+
+  .cad-escalas-list-header {
+    margin-top: 14px;
+  }
+}
+
+/* Seleção de função e botão lado a lado no mobile */
+@media (max-width: 600px) {
+  .cad-escalas-function-selector {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+  }
+
+  .cad-escalas-function-selector > select {
+    flex: 1;
+    width: 0;
+    min-width: 0;
+    height: 42px;
+    padding: 8px;
+    font-size: 13px;
+  }
+
+  .cad-escalas-function-selector > .cad-escalas-add {
+    flex: 0 0 auto;
+    width: auto;
+    min-height: 42px;
+    padding: 8px 10px;
+    margin: 0;
+    font-size: 12px;
+    white-space: nowrap;
+  }
+}
+
+/* Funções selecionadas - visual compacto */
+
+.cad-escalas-function-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+
+  min-height: 0;
+  padding: 12px 16px;
+
+  border: 1px solid #d8c18a;
+  border-left: 4px solid #a87518;
+  border-radius: 6px;
+
+  background: #fffdf8;
+}
+
+.cad-escalas-function-name {
+  flex: 1;
+  min-width: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: #352b1b;
+}
+
+.cad-escalas-remove {
+  flex-shrink: 0;
+  padding: 7px 12px;
+  font-size: 13px;
+  border-radius: 6px;
+}
+
+.cad-escalas-list {
+  gap: 8px;
+}
+
+/* Mobile */
+@media (max-width: 600px) {
+  .cad-escalas-function-row {
+    padding: 10px 12px;
+    gap: 8px;
+  }
+
+  .cad-escalas-function-name {
+    font-size: 14px;
+  }
+
+  .cad-escalas-remove {
+    padding: 7px 10px;
+    font-size: 12px;
+  }
+}
+
+.ia-plano { border: 1px solid #d6b46d; border-left: 5px solid #a56d12; border-radius: 7px; padding: 18px 20px; margin-bottom: 15px; background: #fffdfa; }
+.ia-plano-topo, .ia-plano-identificacao { display: flex; align-items: center; gap: 12px; }
+.ia-plano-topo { justify-content: space-between; flex-wrap: wrap; padding-bottom: 15px; margin-bottom: 14px; border-bottom: 1px solid #e4dfd7; }
+.ia-plano-status { font-size: .85rem; opacity: .75; }
+.ia-plano-cabecalho, .ia-plano-linha { display: grid; grid-template-columns: minmax(130px, 220px) 220px auto; align-items: center; gap: 12px; }
+.ia-plano-cabecalho { margin-bottom: 8px; }
+.ia-plano-linha { margin-bottom: 10px; }
+.ia-plano-linha > .cad-escalas-remove { justify-self: start; }
+.ia-plano-usuario { position: relative; min-width: 0; }
+.ia-plano-usuario-campo { width: 100%; min-height: 42px; padding: 8px 11px; display: flex; align-items: center; justify-content: space-between; gap: 8px; text-align: left; border: 1px solid #bdbdbd; border-radius: 7px; background: #fff; color: #222; cursor: pointer; font: inherit; }
+.ia-plano-usuario-campo > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ia-plano-usuario-campo:focus-visible { outline: 2px solid #a56d12; outline-offset: 2px; }
+.ia-plano-usuario-campo:disabled { cursor: not-allowed; opacity: .6; }
+.ia-plano-opcoes { position: absolute; z-index: 20; top: calc(100% + 4px); left: 0; width: max(220px, 100%); max-width: min(340px, 90vw); max-height: 260px; overflow-y: auto; background: #fff; box-shadow: 0 8px 20px #0002; }
+@media (max-width: 650px) { .ia-plano { padding: 12px; } .ia-plano-cabecalho, .ia-plano-linha { grid-template-columns: minmax(85px, 1fr) minmax(120px, 1.3fr); gap: 8px; } .ia-plano-cabecalho > span { display: none; } .ia-plano-linha > .cad-escalas-remove { grid-column: 2; } .ia-plano-topo { align-items: flex-start; } }
+/* Ações da geração de escalas com IA */
+
+.gerar-ia-actions {
+    position: fixed;
+    z-index: 10;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    padding: 0.8rem 1.25rem;
+    border-top: 1px solid #d8c18a;
+    background: rgba(221, 221, 221, 0.96);
+    box-sizing: border-box;
+}
+
+.gerar-ia-actions__grid {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    width: min(100%, 60rem);
+    margin: 0 auto;
+}
+
+.gerar-ia-action {
+    display: inline-flex;
+    justify-content: center;
+    align-items: center;
+    min-width: 8rem;
+    min-height: 2.8rem;
+    padding: 0.65rem 1.25rem;
+    box-sizing: border-box;
+    border: 1px solid #5a3a05;
+    border-radius: 6px;
+    font: inherit;
+    font-weight: 700;
+    text-decoration: none;
+    cursor: pointer;
+    transition: background-color 160ms ease,
+                color 160ms ease,
+                transform 160ms ease;
+}
+
+.gerar-ia-action--back {
+    background: #fffdf8;
+    color: #5a3a05;
+}
+
+.gerar-ia-action--confirm {
+    background: #5a3a05;
+    color: #fffdf8;
+}
+
+.gerar-ia-action:hover:not(:disabled),
+.gerar-ia-action:focus-visible {
+    transform: translateY(-1px);
+    border-color: #a87518;
+}
+
+.gerar-ia-action--back:hover {
+    background: #5a3a05;
+    color: #fffdf8;
+}
+
+.gerar-ia-action--confirm:hover:not(:disabled) {
+    background: #a87518;
+    color: #fffdf8;
+}
+
+.gerar-ia-action:focus-visible {
+    outline: 2px solid #a87518;
+    outline-offset: 3px;
+}
+
+.gerar-ia-action:disabled {
+    cursor: wait;
+    opacity: 0.65;
+}
+
+/* Espaço para os botões fixos */
+.cad-escalas-page:has(.gerar-ia-actions) {
+    padding-bottom: 7rem;
+}
+
+@media (max-width: 520px) {
+    .gerar-ia-actions {
+        padding: 0.7rem 1rem;
+    }
+
+    .gerar-ia-actions__grid {
+        gap: 0.65rem;
+    }
+
+    .gerar-ia-action {
+        min-width: 0;
+        flex: 1;
+    }
+}
+
+/* Botões Gerar com IA e Salvar escalas lado a lado */
+
+.ia-botoes-lado-a-lado {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 20px 0;
+}
+
+.ia-botoes-lado-a-lado .cad-escalas-section {
+  margin: 0;
+}
+
+.ia-botoes-lado-a-lado .cad-escalas-button {
+  min-width: 160px;
+  min-height: 44px;
+}
+
+/* Mobile */
+@media (max-width: 520px) {
+  .ia-botoes-lado-a-lado {
+    gap: 8px;
+  }
+
+  .ia-botoes-lado-a-lado .cad-escalas-section {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .ia-botoes-lado-a-lado .cad-escalas-button {
+    width: 100%;
+    min-width: 0;
+    padding: 10px 8px;
+    font-size: 12px;
+  }
+}
+
+.ia-acoes-rodape {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+    margin-top: 30px;
+}
+
+.ia-acoes-direita {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.ia-acoes-rodape .cad-escalas-button {
+    min-width: 160px;
+    min-height: 50px;
+    margin: 0;
+}
+
+@media (max-width: 520px) {
+    .ia-acoes-rodape {
+        gap: 8px;
+    }
+
+    .ia-acoes-direita {
+        gap: 8px;
+    }
+
+    .ia-acoes-rodape .cad-escalas-button {
+        min-width: 0;
+        min-height: 44px;
+        padding: 8px;
+        font-size: 12px;
+    }
+}
+
+/* Ajustar somente o botão Voltar */
+.ia-acoes-rodape > a.cad-escalas-button {
+    width: 160px !important;
+    min-width: 160px !important;
+    max-width: 160px !important;
+    height: 50px !important;
+    min-height: 50px !important;
+    padding: 0 12px !important;
+    box-sizing: border-box;
+    flex: 0 0 160px !important;
+}

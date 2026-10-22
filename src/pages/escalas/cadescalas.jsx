@@ -623,6 +623,13 @@ if (jaSelecionado) {
           >
             Voltar
           </Link>
+          <Link
+            className="cad-escalas-button"
+            to="/GerarEscalasIA"
+          >
+            Gerar escala com IA
+          </Link>
+          
           <button
             className="cad-escalas-button cad-escalas-primary"
             type="button"

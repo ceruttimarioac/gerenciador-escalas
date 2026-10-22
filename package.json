@@ -4,8 +4,9 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "concurrently -k -n FRONTEND,GERENCIADOR,REGISTRADOR \"npm:dev:frontend\" \"npm:dev:apigerenciador\" \"npm:dev:apiregistrador\" ",
+    "dev": "concurrently -k -n FRONTEND,GERENCIADOR,REGISTRADOR,IA \"npm:dev:frontend\" \"npm:dev:apigerenciador\" \"npm:dev:apiregistrador\" \"npm:dev:apiia\"",
     "dev:frontend": "vite",
+    "dev:apiia": "node ApiIa/ApiIa.js",
     "dev:apigerenciador": "node ApiGerenciador/ApiGerenciador.js",
     "dev:apiregistrador": "node ApiRegistrador/ApiRegistrador.js",
     "build": "vite build",
