@@ -1,10 +1,7 @@
 import fastify from 'fastify'
 import { GoogleGenAI } from '@google/genai'
-import { loadEnvFile } from 'node:process'
-import { ADDRESS_API, PORT_API, SAVE_LOG, TIMEOUT_IA } from './config-apiia.js'
+import { ADDRESS_API, PORT_API, SAVE_LOG, TIMEOUT_IA, GEMINI_API_KEY } from './config-apiia.js'
 import { createApiLogger } from '../apiLogger.js'
-
-loadEnvFile()
 
 const app = fastify({ logger: false });
 const log = createApiLogger(import.meta.url, 'ApiIa', SAVE_LOG)
@@ -32,7 +29,7 @@ app.post('/gerar', async (request, reply) => {
     })
   }
 
-  if (!process.env.GEMINI_API_KEY) {
+  if (!GEMINI_API_KEY) {
     return reply.code(503).send({
       success: false,
       message: 'Chave do Gemini não configurada.'
@@ -41,7 +38,7 @@ app.post('/gerar', async (request, reply) => {
 
   try {
     const ai = new GoogleGenAI({
-      apiKey: process.env.GEMINI_API_KEY,
+      apiKey: GEMINI_API_KEY,
       httpOptions: { timeout: TIMEOUT_IA }
     })
 

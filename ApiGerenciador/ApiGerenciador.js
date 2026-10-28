@@ -1,14 +1,14 @@
 import fastify from 'fastify'
 import cors from '@fastify/cors'
-import { ADDRESS_WEB, ADDRESS_API, PORT_API, KEY_FIREBASE_API, SAVE_LOG } from './config-apigerenciador.js'
+import { ADDRESS_WEB, ADDRESS_API, PORT_API, ADDRESS_APIGERENCIADOR, ADDRESS_APIIA, KEY_FIREBASE_API, SAVE_LOG } from './config-apigerenciador.js'
 import { createApiLogger } from '../apiLogger.js'
 import { loadEnvFile } from 'node:process'
 loadEnvFile()
 
 const app = fastify({ logger: false });
 const log = createApiLogger(import.meta.url, 'ApiGerenciador', SAVE_LOG)
-const API_REGISTRADOR_URL = process.env.API_REGISTRADOR_URL || 'http://127.0.0.1:3334';
-const API_IA_URL = process.env.API_IA_URL || 'http://127.0.0.1:3335';
+const API_REGISTRADOR_URL = process.env.API_REGISTRADOR_URL || `http://${ADDRESS_APIGERENCIADOR}`;
+const API_IA_URL = process.env.API_IA_URL || `http://${ADDRESS_APIIA}`;
 
 async function obterUserId(token) {
   if (!token) return false;
@@ -941,6 +941,28 @@ Posições: ${JSON.stringify(disponibilidade)}`
     await log('error', 'geraescalaia_failed', { message: error.message })
     reply.code(503)
     return { success: false, message: 'Não foi possível gerar a escala com o Gemini.' }
+  }
+})
+
+app.get('/consultaescalas', async (request, reply) => {
+  try {
+    const userId = await obterUidAutenticado(request, reply)
+    if (!userId) return { success: false, message: 'Sessão do usuário expirada' }
+
+    const query = new URLSearchParams({
+      userId,
+      q: String(request.query.q || '').trim()
+    })
+    const { response, data } = await consultarRegistrador(
+      `/consultaescalas?${query}`
+    )
+
+    reply.code(response.status)
+    return data
+  } catch (error) {
+    await log('error', 'consultaescalas_failed', { message: error.message })
+    reply.code(503)
+    return { success: false, message: 'Não foi possível consultar as escalas' }
   }
 })
 

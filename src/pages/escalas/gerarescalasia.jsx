@@ -1,14 +1,21 @@
 import { useEffect, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { APIGERENCIADOR } from '../../config-web'
-import './cadescalas.css'
+import './gerarescalasia.css'
 
 function GerarEscalasIA() {
     const navigate = useNavigate()
+    const location = useLocation()
+    const escalaSelecionada = location.state?.escala
+    const codigoEscalaSelecionada = Number(escalaSelecionada?.esc_cod)
+    const editandoEscala = Number.isSafeInteger(codigoEscalaSelecionada) &&
+        codigoEscalaSelecionada > 0
 
     const [funcoes, setFuncoes] = useState([])
     const [erro, setErro] = useState('')
     const [carregando, setCarregando] = useState(true)
+    const [erroEscala, setErroEscala] = useState('')
+    const [carregandoEscala, setCarregandoEscala] = useState(editandoEscala)
 
     const [data, setData] = useState('')
     const [periodo, setPeriodo] = useState('M')
@@ -77,13 +84,105 @@ function GerarEscalasIA() {
         return () => controller.abort()
     }, [navigate])
 
+    useEffect(() => {
+        if (!editandoEscala) return
+
+        const controller = new AbortController()
+
+        async function carregarEscala() {
+            const token = localStorage.getItem('token')
+            if (!token) {
+                navigate('/Login')
+                return
+            }
+
+            try {
+                const response = await fetch(
+                    `http://${APIGERENCIADOR}/consultarescala/${codigoEscalaSelecionada}`,
+                    {
+                        headers: { Authorization: 'Bearer ' + token },
+                        signal: controller.signal
+                    }
+                )
+
+                if (response.status === 401) {
+                    navigate('/Login')
+                    return
+                }
+
+                const resultado = await response.json()
+                if (!response.ok || !resultado.success ||
+                    !resultado.escala || !Array.isArray(resultado.itens)) {
+                    throw new Error(resultado.message || 'Não foi possível carregar a escala.')
+                }
+
+                const escala = resultado.escala
+                setData(escala.esc_data)
+                setPeriodo(escala.esc_periodo)
+                setEscalas([{
+                    id: crypto.randomUUID(),
+                    esc_cod: Number(escala.esc_cod),
+                    data: escala.esc_data,
+                    periodo: escala.esc_periodo,
+                    funcoes: resultado.itens.map((item) => ({
+                        id: crypto.randomUUID(),
+                        func_cod: Number(item.func_cod),
+                        func_desc: item.func_desc,
+                        user_cod: Number(item.user_cod),
+                        user_nome: item.user_nome,
+                        cod_user_func: Number(item.cod_user_func),
+                        origem: 'manual'
+                    }))
+                }])
+            } catch (error) {
+                if (error.name !== 'AbortError') {
+                    setErroEscala(error.message)
+                }
+            } finally {
+                if (!controller.signal.aborted) setCarregandoEscala(false)
+            }
+        }
+
+        carregarEscala()
+        return () => controller.abort()
+    }, [codigoEscalaSelecionada, editandoEscala, navigate])
+
     function adicionarFuncao() {
-        if (gerandoIA || salvando) return
+        if (gerandoIA || salvando ||
+            (editandoEscala && escalas.some((escala) => salvas.includes(escala.id)))) return
         const funcao = funcoes.find(
             (item) => String(item.func_cod) === funcaoSelecionada
         )
 
         if (!funcao) return
+
+        if (editandoEscala) {
+            const escalaAtual = escalas.find(
+                (escala) => escala.esc_cod === codigoEscalaSelecionada
+            )
+            if (escalaAtual?.funcoes.length >= 30) {
+                window.alert('O limite é de 30 funções por escala.')
+                return
+            }
+
+            setEscalas((anteriores) => anteriores.map((escala) =>
+                escala.esc_cod === codigoEscalaSelecionada
+                    ? {
+                        ...escala,
+                        funcoes: [...escala.funcoes, {
+                            id: crypto.randomUUID(),
+                            func_cod: funcao.func_cod,
+                            func_desc: funcao.func_desc,
+                            user_cod: null,
+                            user_nome: '',
+                            cod_user_func: null
+                        }]
+                    }
+                    : escala
+            ))
+            setFuncaoSelecionada('')
+            return
+        }
 
         if (funcoesSelecionadas.length >= 30) {
             window.alert('O limite é de 30 funções por escala.')
@@ -245,11 +344,16 @@ function GerarEscalasIA() {
         if (gerandoIA || salvando || salvas.includes(escalaId)) return
         setMensagemIA('')
         setSelecaoAberta(null)
-        setEscalas((anteriores) => anteriores.map((escala) =>
+        setEscalas((anteriores) => {
+            const atualizadas = anteriores.map((escala) =>
             escala.id === escalaId
                 ? { ...escala, funcoes: escala.funcoes.filter((funcao) => funcao.id !== funcaoId) }
                 : escala
-        ).filter((escala) => escala.funcoes.length > 0))
+            )
+            return editandoEscala
+                ? atualizadas
+                : atualizadas.filter((escala) => escala.funcoes.length > 0)
+        })
     }
 
     async function gerarComIA() {
@@ -404,8 +508,10 @@ function GerarEscalasIA() {
         }
 
         const confirmacao = window.confirm(
-            `Confirmar o cadastro de ${pendentes.length} escala(s) no banco de dados? ` +
-            'Essa operação grava as escalas definitivamente.'
+            editandoEscala
+                ? `Confirmar a atualização da escala ${codigoEscalaSelecionada}?`
+                : `Confirmar o cadastro de ${pendentes.length} escala(s) no banco de dados? ` +
+                    'Essa operação grava as escalas definitivamente.'
         )
         if (!confirmacao) return
 
@@ -414,6 +520,58 @@ function GerarEscalasIA() {
         let quantidadeSalva = 0
 
         try {
+            if (editandoEscala) {
+                const escala = pendentes[0]
+                let response
+                try {
+                    response = await fetch(
+                        `http://${APIGERENCIADOR}/atualizaescalas/${codigoEscalaSelecionada}`,
+                        {
+                            method: 'PUT',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                Authorization: 'Bearer ' + token
+                            },
+                            body: JSON.stringify({
+                                data: escala.data,
+                                periodo: escala.periodo,
+                                itens: escala.funcoes.map((funcao) => ({
+                                    cod_user_func: Number(funcao.cod_user_func)
+                                }))
+                            })
+                        }
+                    )
+                } catch {
+                    setResultadoIncerto(true)
+                    throw new Error(
+                        'Não foi possível confirmar o resultado da atualização. ' +
+                        'Consulte as escalas cadastradas antes de tentar novamente.'
+                    )
+                }
+
+                let resultado
+                try {
+                    resultado = await response.json()
+                } catch {
+                    setResultadoIncerto(true)
+                    throw new Error(
+                        'A resposta do servidor não pôde ser interpretada. ' +
+                        'Consulte as escalas cadastradas antes de tentar novamente.'
+                    )
+                }
+
+                if (response.status === 401) {
+                    throw new Error('Sua sessão expirou. Entre novamente antes de continuar.')
+                }
+                if (!response.ok || !resultado.success) {
+                    throw new Error(resultado.message || 'Não foi possível atualizar a escala.')
+                }
+
+                setSalvas([escala.id])
+                setMensagemSalvar(resultado.message || 'Escala atualizada com sucesso.')
+                return
+            }
+
             for (const escala of pendentes) {
                 let response
                 try {
@@ -512,12 +670,12 @@ function GerarEscalasIA() {
 
             <section className="cad-escalas-content">
                 <header className="cad-escalas-header">
-                    <p>INTELIGÊNCIA ARTIFICIAL</p>
-                    <h1>Geração de Escalas com IA</h1>
+                    <p>{editandoEscala ? 'CADASTRO DE ESCALAS' : 'INTELIGÊNCIA ARTIFICIAL'}</p>
+                    <h1>{editandoEscala ? 'Editar escala' : 'Geração de Escalas com IA'}</h1>
                 </header>
 
                 <section className="cad-escalas-section">
-                    <h2>Adicionar escala ao planejamento</h2>
+                    <h2>{editandoEscala ? `Escala ${codigoEscalaSelecionada}` : 'Adicionar escala ao planejamento'}</h2>
 
                     <div className="cad-escalas-form">
                         <div className="cad-escalas-field">
@@ -525,8 +683,22 @@ function GerarEscalasIA() {
                             <input
                                 id="ia-data"
                                 type="date"
-                                value={data}
-                                onChange={(event) => setData(event.target.value)}
+                                value={editandoEscala
+                                    ? escalas.find((escala) => escala.esc_cod === codigoEscalaSelecionada)?.data || data
+                                    : data}
+                                onChange={(event) => {
+                                    const valor = event.target.value
+                                    setData(valor)
+                                    if (editandoEscala) {
+                                        setEscalas((anteriores) => anteriores.map((escala) =>
+                                            escala.esc_cod === codigoEscalaSelecionada
+                                                ? { ...escala, data: valor }
+                                                : escala
+                                        ))
+                                    }
+                                }}
+                                disabled={carregandoEscala || gerandoIA || salvando ||
+                                    (editandoEscala && salvas.length > 0)}
                             />
                         </div>
 
@@ -534,8 +706,22 @@ function GerarEscalasIA() {
                             <label htmlFor="ia-periodo">Período</label>
                             <select
                                 id="ia-periodo"
-                                value={periodo}
-                                onChange={(event) => setPeriodo(event.target.value)}
+                                value={editandoEscala
+                                    ? escalas.find((escala) => escala.esc_cod === codigoEscalaSelecionada)?.periodo || periodo
+                                    : periodo}
+                                onChange={(event) => {
+                                    const valor = event.target.value
+                                    setPeriodo(valor)
+                                    if (editandoEscala) {
+                                        setEscalas((anteriores) => anteriores.map((escala) =>
+                                            escala.esc_cod === codigoEscalaSelecionada
+                                                ? { ...escala, periodo: valor }
+                                                : escala
+                                        ))
+                                    }
+                                }}
+                                disabled={carregandoEscala || gerandoIA || salvando ||
+                                    (editandoEscala && salvas.length > 0)}
                             >
                                 <option value="M">Manhã</option>
                                 <option value="T">Tarde</option>
@@ -548,7 +734,8 @@ function GerarEscalasIA() {
                         <select
                             value={funcaoSelecionada}
                             onChange={(event) => setFuncaoSelecionada(event.target.value)}
-                            disabled={carregando || !!erro}
+                            disabled={carregando || carregandoEscala || !!erro || !!erroEscala ||
+                                (editandoEscala && salvas.length > 0)}
                             aria-label="Selecionar função"
                         >
                             <option value="">Selecione uma função</option>
@@ -563,17 +750,19 @@ function GerarEscalasIA() {
                             type="button"
                             className="cad-escalas-add"
                             onClick={adicionarFuncao}
-                            disabled={!funcaoSelecionada || gerandoIA || salvando}
+                            disabled={!funcaoSelecionada || gerandoIA || salvando || carregandoEscala ||
+                                (editandoEscala && salvas.length > 0)}
                         >
-                            + Adicionar função
+                            {editandoEscala ? '+ Adicionar função à escala' : '+ Adicionar função'}
                         </button>
                     </div>
 
                     {erro && <p className="cad-escalas-error">{erro}</p>}
+                    {erroEscala && <p className="cad-escalas-error" role="alert">{erroEscala}</p>}
 
-                    <h3>Funções selecionadas</h3>
+                    {!editandoEscala && <h3>Funções selecionadas</h3>}
 
-                    {funcoesSelecionadas.map((funcao) => (
+                    {!editandoEscala && funcoesSelecionadas.map((funcao) => (
                         <div className="cad-escalas-function-row" key={funcao.id}>
                             <span>{funcao.func_desc}</span>
                             <button
@@ -589,7 +778,7 @@ function GerarEscalasIA() {
                         </div>
                     ))}
 
-                    <button
+                    {!editandoEscala && <button
                         type="button"
                         className="cad-escalas-add"
                         onClick={adicionarEscala}
@@ -597,11 +786,13 @@ function GerarEscalasIA() {
                         style={{ marginTop: 20 }}
                     >
                         + Adicionar escala ao planejamento
-                    </button>
+                    </button>}
                 </section>
 
                 <section className="cad-escalas-section">
-                {escalas.length === 0 ? (
+                {carregandoEscala ? (
+                    <p className="cad-escalas-empty" role="status">Carregando dados da escala...</p>
+                ) : erroEscala ? null : escalas.length === 0 ? (
                     <p className="cad-escalas-empty">Nenhuma escala adicionada.</p>
                 ) : escalas.map((escala) => (
                     <div className="ia-plano" key={escala.id}>
@@ -610,13 +801,15 @@ function GerarEscalasIA() {
                                 <strong>{escala.data}</strong>
                                 <span>{nomePeriodo[escala.periodo]}</span>
                                 <span className="ia-plano-status">
-                                    {salvas.includes(escala.id) ? 'Salva' : 'Pendente'}
+                                    {salvas.includes(escala.id)
+                                        ? (editandoEscala ? 'Atualizada' : 'Salva')
+                                        : (editandoEscala ? 'Em edição' : 'Pendente')}
                                 </span>
                             </div>
                             <button type="button" className="cad-escalas-remove"
                                 onClick={() => removerEscala(escala.id)}
-                                disabled={gerandoIA || salvando || salvas.includes(escala.id)}>
-                                Excluir escala
+                                disabled={editandoEscala || gerandoIA || salvando || salvas.includes(escala.id)}>
+                                {editandoEscala ? 'Escala existente' : 'Excluir escala'}
                             </button>
                         </div>
                         <div className="ia-plano-cabecalho">
@@ -676,7 +869,9 @@ function GerarEscalasIA() {
                         onClick={gerarComIA}
                         disabled={gerandoIA || salvando || escalas.length === 0 || salvas.length > 0 || resultadoIncerto}
                     >
-                        {gerandoIA ? 'Gerando sugestões...' : 'Gerar com IA'}
+                        {gerandoIA
+                            ? 'Gerando sugestões...'
+                            : (editandoEscala ? 'Gerar sugestões com IA' : 'Gerar com IA')}
                     </button>
 
                     <button
@@ -686,7 +881,9 @@ function GerarEscalasIA() {
                         disabled={salvando || gerandoIA || resultadoIncerto ||
                             escalas.length === 0 || escalas.every((escala) => salvas.includes(escala.id))}
                     >
-                        {salvando ? 'Salvando escalas...' : 'Salvar escalas'}
+                        {salvando
+                            ? (editandoEscala ? 'Atualizando escala...' : 'Salvando escalas...')
+                            : (editandoEscala ? 'Atualizar escala' : 'Salvar escalas')}
                     </button>
                 </div>
             </div>

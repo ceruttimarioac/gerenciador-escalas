@@ -803,6 +803,59 @@ app.post('/inseriescalas', async (request, reply) => {
   }
 })
 
+app.get('/consultaescalas', async (request, reply) => {
+  const userId = String(request.query?.userId || '')
+  const pesquisa = String(request.query?.q || '').trim()
+
+  if (!userId) {
+    reply.code(400)
+    return { success: false, message: 'Identificador do usuário não informado' }
+  }
+
+  try {
+    const { rows } = await pool.query(
+      `SELECT
+         E.ESC_COD,
+         TO_CHAR(E.ESC_DATA, 'YYYY-MM-DD') AS ESC_DATA,
+         E.ESC_PERIODO,
+         COUNT(EI.ID)::int AS TOTAL_COLABORADORES
+       FROM ESCALA E
+       INNER JOIN USUARIO AUT
+         ON AUT.EMP_ID = E.EMP_ID
+         AND AUT.USER_FIREBASE_UID = $1
+       LEFT JOIN ESC_ITEM EI
+         ON EI.ESC_COD = E.ESC_COD
+       WHERE (
+         $2 = ''
+         OR E.ESC_COD::text ILIKE '%' || $2 || '%'
+         OR TO_CHAR(E.ESC_DATA, 'YYYY-MM-DD') ILIKE '%' || $2 || '%'
+         OR E.ESC_PERIODO ILIKE '%' || $2 || '%'
+         OR CASE E.ESC_PERIODO
+           WHEN 'M' THEN 'Manhã'
+           WHEN 'T' THEN 'Tarde'
+           WHEN 'N' THEN 'Noite'
+         END ILIKE '%' || $2 || '%'
+       )
+       GROUP BY E.ESC_COD, E.ESC_DATA, E.ESC_PERIODO
+       ORDER BY E.ESC_DATA DESC, E.ESC_PERIODO, E.ESC_COD DESC
+       LIMIT 100`,
+      [userId, pesquisa]
+    )
+
+    await log('info', 'escalas_consultadas', {
+      resultCount: rows.length,
+      filterProvided: pesquisa.length > 0
+    })
+    return { escalas: rows }
+  } catch (error) {
+    await log('error', 'schedule_query_failed', {
+      code: error.code || null,
+      message: error.message
+    })
+    reply.code(503)
+    return { success: false, message: 'Não foi possível consultar as escalas' }
+  }
+})
 
 app.get('/consultarescala/:escCod', async (request, reply) => {
   const userId = String(request.query?.userId || '')
