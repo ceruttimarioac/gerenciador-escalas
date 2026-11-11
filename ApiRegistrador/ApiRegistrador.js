@@ -1,10 +1,8 @@
 import fastify from 'fastify'
 import { Pool } from 'pg'
-import { ADDRESS_API, PORT_API, IP_DB, PORT_DB, PASSWORD_DB, USER_DB, DATABASE_DB, SAVE_LOG } from './config-apiregistrador.js'
-import { createApiLogger } from '../apiLogger.js'
+import { ADDRESS_API, PORT_API, IP_DB, PORT_DB, PASSWORD_DB, USER_DB, DATABASE_DB } from './config-apiregistrador.js'
 
 const app = fastify({ logger: false });
-const log = createApiLogger(import.meta.url, 'ApiRegistrador', SAVE_LOG)
 const pool = new Pool({
   host: IP_DB,
   port: PORT_DB,
@@ -12,22 +10,6 @@ const pool = new Pool({
   password: PASSWORD_DB,
   database: DATABASE_DB
 });
-
-pool.on('error', (error) => {
-  void log('error', 'database_pool_error', {
-    code: error.code || null,
-    message: error.message
-  })
-})
-
-app.addHook('onResponse', async (request, reply) => {
-  await log('info', 'http_response', {
-    method: request.method,
-    route: request.routeOptions?.url || request.url.split('?')[0],
-    statusCode: reply.statusCode,
-    responseTimeMs: Math.round(request.elapsedTime * 100) / 100
-  })
-})
 
 app.get('/contextousuario', async (request, reply) => {
   const userId = String(request.query.userId || '')
@@ -50,11 +32,7 @@ app.get('/contextousuario', async (request, reply) => {
       return { success: false, message: 'Usuário não vinculado a uma empresa' }
     }
     return rows[0]
-  } catch (error) {
-    await log('error', 'user_context_query_failed', {
-      code: error.code || null,
-      message: error.message
-    })
+  } catch {
     reply.code(503)
     return { success: false, message: 'Não foi possível consultar o usuário' }
   }
@@ -117,18 +95,9 @@ app.post('/bootstrapempresa', async (request, reply) => {
       [company.emp_id, initialRole.func_cod, user.user_cod]
     )
     await client.query('COMMIT')
-    await log('info', 'initial_company_registered', {
-      empId: company.emp_id,
-      userCod: user.user_cod,
-      functionCode: initialRole.func_cod
-    })
     return { success: true, empresa: company, usuario: user, funcao: initialRole }
-  } catch (error) {
+  } catch {
     if (client) await client.query('ROLLBACK').catch(() => { })
-    await log('error', 'initial_company_registration_failed', {
-      code: error.code || null,
-      message: error.message
-    })
     reply.code(503)
     return { success: false, message: 'Não foi possível criar a empresa no banco de dados' }
   } finally {
@@ -157,11 +126,7 @@ app.get('/consultafuncoes', async (request, reply) => {
       [userId, pesquisa]
     )
     return { funcoes: rows }
-  } catch (error) {
-    await log('error', 'functions_query_failed', {
-      code: error.code || null,
-      message: error.message
-    })
+  } catch {
     reply.code(503)
     return { success: false, message: 'Não foi possível consultar as funções' }
   }
@@ -189,11 +154,7 @@ app.get('/consultafuncoes/:funcCod', async (request, reply) => {
       return { success: false, message: 'Função não encontrada nesta empresa' }
     }
     return { funcao: rows[0] }
-  } catch (error) {
-    await log('error', 'function_details_query_failed', {
-      code: error.code || null,
-      message: error.message
-    })
+  } catch {
     reply.code(503)
     return { success: false, message: 'Não foi possível consultar a função' }
   }
@@ -222,11 +183,7 @@ app.post('/cadastrarfuncao', async (request, reply) => {
       return { success: false, message: 'Usuário não vinculado a uma empresa' }
     }
     return { success: true, funcao: rows[0] }
-  } catch (error) {
-    await log('error', 'function_insert_failed', {
-      code: error.code || null,
-      message: error.message
-    })
+  } catch {
     reply.code(503)
     return { success: false, message: 'Não foi possível cadastrar a função' }
   }
@@ -257,11 +214,7 @@ app.put('/atualizarfuncao/:funcCod', async (request, reply) => {
       return { success: false, message: 'Função não encontrada nesta empresa' }
     }
     return { success: true, funcao: rows[0] }
-  } catch (error) {
-    await log('error', 'function_update_failed', {
-      code: error.code || null,
-      message: error.message
-    })
+  } catch {
     reply.code(503)
     return { success: false, message: 'Não foi possível atualizar a função' }
   }
@@ -315,17 +268,9 @@ app.post('/cadastrarusuario', async (request, reply) => {
       [empId, functionCode, createdUser.user_cod]
     )
     await client.query('COMMIT')
-    await log('info', 'user_registered', {
-      empId: createdUser.emp_id,
-      userCod: createdUser.user_cod
-    })
     return { usuario: createdUser }
-  } catch (error) {
+  } catch {
     if (client) await client.query('ROLLBACK').catch(() => { })
-    await log('error', 'user_insert_failed', {
-      code: error.code || null,
-      message: error.message
-    })
     reply.code(503)
     return { success: false, message: 'Não foi possível gravar o usuário no banco de dados' }
   } finally {
@@ -339,7 +284,6 @@ app.get('/consultausuario', async (request, reply) => {
   const pesquisa = String(request.query.q || '').trim();
 
   if (!userId) {
-    await log('warn', 'consultausuario_missing_user_id')
     reply.code(400);
     return { success: false, message: 'Identificador do usuário não informado' };
   }
@@ -361,16 +305,8 @@ app.get('/consultausuario', async (request, reply) => {
       [userId, pesquisa]
     );
 
-    await log('info', 'usuarios_consultados', {
-      resultCount: rows.length,
-      filterProvided: pesquisa.length > 0
-    })
     return { usuarios: rows };
   } catch (error) {
-    await log('error', 'database_query_failed', {
-      code: error.code || null,
-      message: error.message
-    })
     app.log.error(error);
     reply.code(503);
     return { success: false, message: 'Não foi possível consultar os usuários' };
@@ -414,11 +350,7 @@ app.get('/consultausuario/:userCod', async (request, reply) => {
       usuario: rows[0],
       indisponibilidades: unavailableRows.map((item) => item.dt_indispo.toISOString().slice(0, 10))
     }
-  } catch (error) {
-    await log('error', 'user_details_query_failed', {
-      code: error.code || null,
-      message: error.message
-    })
+  } catch {
     reply.code(503)
     return { success: false, message: 'Não foi possível consultar o colaborador' }
   }
@@ -528,14 +460,9 @@ app.put('/atualizarusuario/:userCod', async (request, reply) => {
     }
 
     await client.query('COMMIT')
-    await log('info', 'user_updated', { empId, userCod })
     return { success: true, usuario: userRows[0] }
-  } catch (error) {
+  } catch {
     if (client) await client.query('ROLLBACK').catch(() => { })
-    await log('error', 'user_update_failed', {
-      code: error.code || null,
-      message: error.message
-    })
     reply.code(503)
     return { success: false, message: 'Não foi possível atualizar o colaborador' }
   } finally {
@@ -606,10 +533,7 @@ app.get('/consultarusuariosdisponiveis', async (request, reply) => {
       usuarios: resultado.rows
     };
 
-  } catch (error) {
-    await log('error', 'usuarios_disponiveis_failed', {
-      message: error.message
-    });
+  } catch {
 
     reply.code(503);
     return {
@@ -668,10 +592,7 @@ app.get('/consultarconflitosescala', async (request, reply) => {
       )
     }
 
-  } catch (error) {
-    await log('error', 'consultar_conflitos_escala_failed', {
-      message: error.message
-    })
+  } catch {
 
     reply.code(503)
     return {
@@ -855,10 +776,6 @@ app.post('/inseriescalas', async (request, reply) => {
       }
     }
 
-    await log('error', 'escala_insert_failed', {
-      code: error.code || null,
-      message: error.message
-    })
 
     reply.code(503)
     return {
@@ -909,16 +826,8 @@ app.get('/consultaescalas', async (request, reply) => {
       [userId, pesquisa]
     )
 
-    await log('info', 'escalas_consultadas', {
-      resultCount: rows.length,
-      filterProvided: pesquisa.length > 0
-    })
     return { escalas: rows }
-  } catch (error) {
-    await log('error', 'schedule_query_failed', {
-      code: error.code || null,
-      message: error.message
-    })
+  } catch {
     reply.code(503)
     return { success: false, message: 'Não foi possível consultar as escalas' }
   }
@@ -992,11 +901,7 @@ app.get('/consultarescala/:escCod', async (request, reply) => {
       escala: escalas[0],
       itens
     }
-  } catch (error) {
-    await log('error', 'consultarescala_failed', {
-      code: error.code || null,
-      message: error.message
-    })
+  } catch {
 
     reply.code(503)
     return {
@@ -1205,15 +1110,11 @@ app.put('/atualizaescalas/:escCod', async (request, reply) => {
       message: 'Escala atualizada com sucesso.',
       escala: atualizadas[0]
     }
-  } catch (error) {
+  } catch {
     if (client) {
       await client.query('ROLLBACK').catch(() => { })
     }
 
-    await log('error', 'escala_update_failed', {
-      code: error.code || null,
-      message: error.message
-    })
 
     reply.code(503)
     return {
@@ -1232,14 +1133,8 @@ const start = async () => {
       port: PORT_API || 3334,
       host: ADDRESS_API || '127.0.0.1'
     });
-    await log('info', 'api_started', {
-      host: ADDRESS_API || '127.0.0.1',
-      port: PORT_API || 3334,
-      database: DATABASE_DB
-    })
     console.log(`Server is running on port ${PORT_API}`);
   } catch (err) {
-    await log('error', 'api_start_failed', { message: err.message })
     app.log.error(err);
     process.exit(1);
   }

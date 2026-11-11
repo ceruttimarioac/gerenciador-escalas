@@ -16,6 +16,7 @@ function Login() {
     setError(null)
 
     try {
+      // Envia a requisição de login para o servidor
       const response = await fetch('http://' + APIGERENCIADOR + '/login', {
         method: 'POST',
         headers: {
@@ -24,12 +25,19 @@ function Login() {
         body: JSON.stringify({ email, password })
       })
 
+      // aguarda a resposta do servidor
       const data = await response.json()
 
       if (!data.success) {
+        // verifica se o usuário não está registrado e se há um token na resposta
         if (data.code === 'USER_NOT_REGISTERED' && data.token) {
+          // remove o token de login do localStorage, caso exista
           localStorage.removeItem('emp_id')
           localStorage.removeItem('user_cod')
+          
+          // redireciona para a página de registro com o token e email como estado
+          // OBSERVAÇÃO: Esse redirecionamento existe apenas para demonstração, 
+          // pois a liberação é realizada pelo por administrativo separado
           navigate('/Admin', {
             state: {
               adminBootstrap: true,
@@ -43,11 +51,14 @@ function Login() {
         throw new Error(data.message || 'Erro ao fazer login')
       }
 
+      // se o login for realizado com sucesso
       if(data.success) {
+        // valida se o token de acesso foi retornado pelo servidor
         if (!data.token) {
           throw new Error('O servidor não retornou um token de acesso')
         }
 
+        // Guarda
         localStorage.setItem('token', data.token)
         localStorage.setItem(
           'tokenExpiresAt',

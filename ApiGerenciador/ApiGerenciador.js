@@ -1,39 +1,79 @@
 import fastify from 'fastify'
 import cors from '@fastify/cors'
-import { ADDRESS_WEB, ADDRESS_API, PORT_API, ADDRESS_APIGERENCIADOR, ADDRESS_APIIA, KEY_FIREBASE_API, SAVE_LOG } from './config-apigerenciador.js'
-import { createApiLogger } from '../apiLogger.js'
-import { loadEnvFile } from 'node:process'
-loadEnvFile()
+import { 
+  ADDRESS_WEB, ADDRESS_API, PORT_API, 
+  ADDRESS_APIGERENCIADOR, ADDRESS_APIIA, 
+  KEY_FIREBASE_API 
+} from './config-apigerenciador.js'
 
 const app = fastify({ logger: false });
-const log = createApiLogger(import.meta.url, 'ApiGerenciador', SAVE_LOG)
+
+// instancia as variáveis de ambiente para as URLs das APIs
 const API_REGISTRADOR_URL = process.env.API_REGISTRADOR_URL || `http://${ADDRESS_APIGERENCIADOR}`;
 const API_IA_URL = process.env.API_IA_URL || `http://${ADDRESS_APIIA}`;
 
-async function obterUserId(token) {
-  if (!token) return false;
 
-  // Faz uma requisição para a API do Firebase para validar o token e obter o userId
+// ------------------------------------------
+// funções
+
+
+// Consulta o Firebase usando o token e retorna o ID do usuário ou false.
+async function obterUserIdfirebase(token) {
+  // Se o token não foi informado, encerra a função.
+  if (!token) {
+    return false;
+  }
+
   try {
-    const response = await fetch(
-      `https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${KEY_FIREBASE_API}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ idToken: token })
-      }
-    );
-    const data = await response.json();
-    if (!response.ok) {
-      await log('warn', 'firebase_token_rejected', { statusCode: response.status })
-      return false
+    // Endereço da API do Firebase que consulta o usuário pelo token.
+    const url = `https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${KEY_FIREBASE_API}`;
+
+    // Envia o token para o Firebase.
+    const resposta = await fetch(url, {
+      method: 'POST',
+
+      // Informa que o corpo da requisição está no formato JSON.
+      headers: {
+        'Content-Type': 'application/json'
+      },
+
+      // Converte o objeto com o token para uma string JSON.
+      body: JSON.stringify({
+        idToken: token
+      })
+    });
+
+    // Lê o conteúdo da resposta e converte para um objeto JavaScript.
+    const dados = await resposta.json();
+
+    if (!resposta.ok) {
+
+      // Não foi possível obter um usuário válido.
+      return false;
     }
-    return data.users?.[0]?.localId || false;
-  } catch (error) {
-    await log('error', 'firebase_validation_failed', { message: error.message })
+
+    // Pega o primeiro usuário da lista.
+    // O ?. evita um erro caso a propriedade "users" não exista.
+    const usuario = dados.users?.[0];
+
+    // Se nenhum usuário foi retornado, encerra a função.
+    if (!usuario) {
+      return false;
+    }
+
+    // O campo localId contém o identificador do usuário no Firebase.
+    const userId = usuario.localId;
+
+    // Retorna o identificador ou false se ele estiver ausente ou vazio.
+    return userId || false;
+
+  } catch {
+    // Indica que não foi possível obter o identificador do usuário.
     return false;
   }
 }
+
+
 
 async function consultarRegistrador(path, options) {
   const response = await fetch(`${API_REGISTRADOR_URL}${path}`, options)
@@ -46,7 +86,7 @@ async function obterUidAutenticado(request, reply) {
   const token = authorization.startsWith('Bearer ')
     ? authorization.slice('Bearer '.length)
     : ''
-  const userId = await obterUserId(token)
+  const userId = await obterUserIdfirebase(token)
 
   if (!userId) {
     reply.code(401)
@@ -60,16 +100,6 @@ await app.register(cors, {
   origin: ADDRESS_WEB,
   methods: ['GET', 'HEAD', 'POST', 'PUT', 'OPTIONS']
 })
-
-app.addHook('onResponse', async (request, reply) => {
-  await log('info', 'http_response', {
-    method: request.method,
-    route: request.routeOptions?.url || request.url.split('?')[0],
-    statusCode: reply.statusCode,
-    responseTimeMs: Math.round(request.elapsedTime * 100) / 100
-  })
-})
-
 
 app.post('/login', async (request, reply) => {
   try {
@@ -93,7 +123,6 @@ app.post('/login', async (request, reply) => {
     const data = await response.json();
 
     if (!response.ok) {
-      await log('warn', 'firebase_login_rejected', { statusCode: response.status })
       return {
         success: false,
         message: data.error?.message
@@ -131,7 +160,6 @@ app.post('/login', async (request, reply) => {
     };
 
   } catch (error) {
-    await log('error', 'login_failed', { message: error.message })
     return {
       success: false,
       message: error.message
@@ -148,8 +176,7 @@ app.get('/contexto', async (request, reply) => {
     const { response, data } = await consultarRegistrador(`/contextousuario?${query}`)
     reply.code(response.status)
     return data
-  } catch (error) {
-    await log('error', 'company_context_failed', { message: error.message })
+  } catch {
     reply.code(503)
     return { success: false, message: 'Não foi possível consultar a empresa do usuário' }
   }
@@ -182,8 +209,7 @@ app.post('/admin/empresa', async (request, reply) => {
     })
     reply.code(response.status)
     return data
-  } catch (error) {
-    await log('error', 'admin_company_bootstrap_failed', { message: error.message })
+  } catch {
     reply.code(503)
     return { success: false, message: 'Não foi possível configurar a empresa' }
   }
@@ -211,7 +237,6 @@ app.post('/registrar', async (request, reply) => {
     const data = await response.json();
 
     if (!response.ok) {
-      await log('warn', 'firebase_registration_rejected', { statusCode: response.status })
       reply.code(response.status);
       return {
         success: false,
@@ -226,7 +251,6 @@ app.post('/registrar', async (request, reply) => {
     };
 
   } catch (error) {
-    await log('error', 'registration_failed', { message: error.message })
     reply.code(500);
     return {
       success: false,
@@ -248,8 +272,7 @@ app.get('/consultafuncoes', async (request, reply) => {
     const { response, data } = await consultarRegistrador(`/consultafuncoes?${query}`)
     reply.code(response.status)
     return data
-  } catch (error) {
-    await log('error', 'consultafuncoes_failed', { message: error.message })
+  } catch {
     reply.code(503)
     return { success: false, message: 'Não foi possível consultar as funções' }
   }
@@ -272,8 +295,7 @@ app.get('/consultafuncoes/:funcCod', async (request, reply) => {
     )
     reply.code(response.status)
     return data
-  } catch (error) {
-    await log('error', 'function_details_failed', { message: error.message })
+  } catch {
     reply.code(503)
     return { success: false, message: 'Não foi possível consultar a função' }
   }
@@ -297,8 +319,7 @@ app.post('/cadastrarfuncao', async (request, reply) => {
     })
     reply.code(response.status)
     return data
-  } catch (error) {
-    await log('error', 'cadastrarfuncao_failed', { message: error.message })
+  } catch {
     reply.code(503)
     return { success: false, message: 'Não foi possível cadastrar a função' }
   }
@@ -323,8 +344,7 @@ app.put('/consultafuncoes/:funcCod', async (request, reply) => {
     })
     reply.code(response.status)
     return data
-  } catch (error) {
-    await log('error', 'function_update_failed', { message: error.message })
+  } catch {
     reply.code(503)
     return { success: false, message: 'Não foi possível atualizar a função' }
   }
@@ -389,8 +409,7 @@ app.post('/cadastrarusuario', async (request, reply) => {
     }
 
     return { success: true, ...registration.data }
-  } catch (error) {
-    await log('error', 'cadastrarusuario_failed', { message: error.message })
+  } catch {
     reply.code(503)
     return { success: false, message: 'Não foi possível cadastrar o usuário' }
   }
@@ -411,7 +430,6 @@ app.get('/consultausuario', async (request, reply) => {
   try {
     const userId = await obterUserId(token);
     if (!userId) {
-      await log('warn', 'consultausuario_unauthorized')
       reply.code(401);
       return { success: false, message: 'Sessão do usuario expirada' };
     }
@@ -426,9 +444,6 @@ app.get('/consultausuario', async (request, reply) => {
     const registradorResponse = await fetch(
       `${API_REGISTRADOR_URL}/consultausuario?${query}`,
     );
-    await log(registradorResponse.ok ? 'info' : 'warn', 'registrador_response', {
-      statusCode: registradorResponse.status
-    })
 
     // Retorna a resposta da API registradora para o cliente
     const registradorData = await registradorResponse.json();
@@ -438,8 +453,7 @@ app.get('/consultausuario', async (request, reply) => {
 
     // Retorna os dados da API registradora para o cliente
     return registradorData;
-  } catch (error) {
-    await log('error', 'consultausuario_failed', { message: error.message })
+  } catch {
     reply.code(503);
     return {
       success: false,
@@ -465,8 +479,7 @@ app.get('/consultausuario/:userCod', async (request, reply) => {
     )
     reply.code(response.status)
     return data
-  } catch (error) {
-    await log('error', 'user_details_failed', { message: error.message })
+  } catch {
     reply.code(503)
     return { success: false, message: 'Não foi possível consultar o colaborador' }
   }
@@ -497,8 +510,7 @@ app.put('/consultausuario/:userCod', async (request, reply) => {
     })
     reply.code(response.status)
     return data
-  } catch (error) {
-    await log('error', 'user_update_failed', { message: error.message })
+  } catch {
     reply.code(503)
     return { success: false, message: 'Não foi possível atualizar o colaborador' }
   }
@@ -535,10 +547,7 @@ app.get('/consultarusuariosdisponiveis', async (request, reply) => {
     reply.code(response.status);
     return resultado;
 
-  } catch (error) {
-    await log('error', 'consultar_usuarios_disponiveis_failed', {
-      message: error.message
-    });
+  } catch {
 
     reply.code(503);
     return {
@@ -613,10 +622,7 @@ app.post('/inseriescalas', async (request, reply) => {
     reply.code(response.status)
     return resultado
 
-  } catch (error) {
-    await log('error', 'inseriescalas_failed', {
-      message: error.message
-    })
+  } catch {
 
     reply.code(503)
 
@@ -655,10 +661,7 @@ app.get('/consultarescala/:escCod', async (request, reply) => {
 
     reply.code(response.status)
     return data
-  } catch (error) {
-    await log('error', 'consultarescala_failed', {
-      message: error.message
-    })
+  } catch {
 
     reply.code(503)
     return {
@@ -741,10 +744,7 @@ app.put('/atualizaescalas/:escCod', async (request, reply) => {
 
     reply.code(response.status)
     return resultado
-  } catch (error) {
-    await log('error', 'atualizaescalas_failed', {
-      message: error.message
-    })
+  } catch {
 
     reply.code(503)
     return {
@@ -988,7 +988,6 @@ Posições: ${JSON.stringify(disponibilidade)}`
     }
   } catch (error) {
     console.error('ERRO GERAESCALAIA:', error)
-    await log('error', 'geraescalaia_failed', { message: error.message })
     reply.code(503)
     return { success: false, message: 'Não foi possível gerar a escala com o Gemini.' }
   }
@@ -996,6 +995,7 @@ Posições: ${JSON.stringify(disponibilidade)}`
 
 app.get('/consultaescalas', async (request, reply) => {
   try {
+
     const userId = await obterUidAutenticado(request, reply)
     if (!userId) return { success: false, message: 'Sessão do usuário expirada' }
 
@@ -1009,8 +1009,7 @@ app.get('/consultaescalas', async (request, reply) => {
 
     reply.code(response.status)
     return data
-  } catch (error) {
-    await log('error', 'consultaescalas_failed', { message: error.message })
+  } catch {
     reply.code(503)
     return { success: false, message: 'Não foi possível consultar as escalas' }
   }
@@ -1019,10 +1018,8 @@ app.get('/consultaescalas', async (request, reply) => {
 const start = async () => {
   try {
     await app.listen({ port: PORT_API, host: ADDRESS_API });
-    await log('info', 'api_started', { host: ADDRESS_API, port: PORT_API })
     console.log(`Server is running on port ${PORT_API}`);
   } catch (err) {
-    await log('error', 'api_start_failed', { message: err.message })
     app.log.error(err);
     process.exit(1);
   }
