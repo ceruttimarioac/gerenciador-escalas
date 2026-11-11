@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { APIGERENCIADOR } from '../../config-web'
-import './registrar.css'
+import '../autenticacao.css'
 
 function Registrar() {
   const [email, setEmail] = useState('')
