@@ -29,6 +29,7 @@ createRoot(document.getElementById('root')).render(
         <Route path="/CadUsuarios/:userCod" element={<CadUsuarios />} />
         <Route path="/CadUsuarios" element={<CadUsuarios />} />
         <Route path="/CadFuncoes" element={<CadFuncoes />} />
+        <Route path="/CadFuncoes/:funcCod" element={<CadFuncoes />} />
         <Route path="/ConsFuncoes" element={<ConsFuncoes />} />
         <Route path="/Escalas" element={<ConsEscalas />} />
         <Route path="/Usuarios" element={<ConsUsuarios />} />

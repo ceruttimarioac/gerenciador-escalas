@@ -167,6 +167,38 @@ app.get('/consultafuncoes', async (request, reply) => {
   }
 })
 
+app.get('/consultafuncoes/:funcCod', async (request, reply) => {
+  const userId = String(request.query.userId || '')
+  const funcCod = Number(request.params.funcCod)
+  if (!userId || !Number.isInteger(funcCod) || funcCod < 1) {
+    reply.code(400)
+    return { success: false, message: 'Identificador do usuário e código da função são obrigatórios' }
+  }
+
+  try {
+    const { rows } = await pool.query(
+      `SELECT F.FUNC_COD, F.FUNC_DESC
+       FROM FUNCAO F
+       JOIN USUARIO U ON U.EMP_ID = F.EMP_ID AND U.USER_FIREBASE_UID = $1
+       WHERE F.FUNC_COD = $2
+       LIMIT 1`,
+      [userId, funcCod]
+    )
+    if (!rows.length) {
+      reply.code(404)
+      return { success: false, message: 'Função não encontrada nesta empresa' }
+    }
+    return { funcao: rows[0] }
+  } catch (error) {
+    await log('error', 'function_details_query_failed', {
+      code: error.code || null,
+      message: error.message
+    })
+    reply.code(503)
+    return { success: false, message: 'Não foi possível consultar a função' }
+  }
+})
+
 app.post('/cadastrarfuncao', async (request, reply) => {
   const userId = String(request.body?.userId || '')
   const funcDesc = String(request.body?.func_desc || '').trim()
@@ -197,6 +229,41 @@ app.post('/cadastrarfuncao', async (request, reply) => {
     })
     reply.code(503)
     return { success: false, message: 'Não foi possível cadastrar a função' }
+  }
+})
+
+app.put('/atualizarfuncao/:funcCod', async (request, reply) => {
+  const userId = String(request.body?.userId || '')
+  const funcCod = Number(request.params.funcCod)
+  const funcDesc = String(request.body?.func_desc || '').trim()
+  if (!userId || !Number.isInteger(funcCod) || funcCod < 1 || !funcDesc || funcDesc.length > 200) {
+    reply.code(400)
+    return { success: false, message: 'Identificador do usuário, código e descrição são obrigatórios' }
+  }
+
+  try {
+    const { rows } = await pool.query(
+      `UPDATE FUNCAO F
+       SET FUNC_DESC = $3
+       FROM USUARIO U
+       WHERE U.USER_FIREBASE_UID = $1
+         AND U.EMP_ID = F.EMP_ID
+         AND F.FUNC_COD = $2
+       RETURNING F.FUNC_COD, F.FUNC_DESC`,
+      [userId, funcCod, funcDesc]
+    )
+    if (!rows.length) {
+      reply.code(404)
+      return { success: false, message: 'Função não encontrada nesta empresa' }
+    }
+    return { success: true, funcao: rows[0] }
+  } catch (error) {
+    await log('error', 'function_update_failed', {
+      code: error.code || null,
+      message: error.message
+    })
+    reply.code(503)
+    return { success: false, message: 'Não foi possível atualizar a função' }
   }
 })
 

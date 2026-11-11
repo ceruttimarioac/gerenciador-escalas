@@ -255,6 +255,30 @@ app.get('/consultafuncoes', async (request, reply) => {
   }
 })
 
+app.get('/consultafuncoes/:funcCod', async (request, reply) => {
+  try {
+    const userId = await obterUidAutenticado(request, reply)
+    if (!userId) return { success: false, message: 'Sessão do usuário expirada' }
+
+    const funcCod = Number(request.params.funcCod)
+    if (!Number.isInteger(funcCod) || funcCod < 1) {
+      reply.code(400)
+      return { success: false, message: 'Código de função inválido' }
+    }
+
+    const query = new URLSearchParams({ userId })
+    const { response, data } = await consultarRegistrador(
+      `/consultafuncoes/${funcCod}?${query}`
+    )
+    reply.code(response.status)
+    return data
+  } catch (error) {
+    await log('error', 'function_details_failed', { message: error.message })
+    reply.code(503)
+    return { success: false, message: 'Não foi possível consultar a função' }
+  }
+})
+
 app.post('/cadastrarfuncao', async (request, reply) => {
   try {
     const userId = await obterUidAutenticado(request, reply)
@@ -277,6 +301,32 @@ app.post('/cadastrarfuncao', async (request, reply) => {
     await log('error', 'cadastrarfuncao_failed', { message: error.message })
     reply.code(503)
     return { success: false, message: 'Não foi possível cadastrar a função' }
+  }
+})
+
+app.put('/consultafuncoes/:funcCod', async (request, reply) => {
+  try {
+    const userId = await obterUidAutenticado(request, reply)
+    if (!userId) return { success: false, message: 'Sessão do usuário expirada' }
+
+    const funcCod = Number(request.params.funcCod)
+    const funcDesc = String(request.body?.func_desc || '').trim()
+    if (!Number.isInteger(funcCod) || funcCod < 1 || !funcDesc || funcDesc.length > 200) {
+      reply.code(400)
+      return { success: false, message: 'Informe código e descrição válidos para a função' }
+    }
+
+    const { response, data } = await consultarRegistrador(`/atualizarfuncao/${funcCod}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId, func_desc: funcDesc })
+    })
+    reply.code(response.status)
+    return data
+  } catch (error) {
+    await log('error', 'function_update_failed', { message: error.message })
+    reply.code(503)
+    return { success: false, message: 'Não foi possível atualizar a função' }
   }
 })
 

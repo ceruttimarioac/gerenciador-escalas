@@ -1,15 +1,61 @@
-import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { APIGERENCIADOR } from '../../config-web'
 import './cadfuncoes.css'
 
 function CadFuncoes({ embedded = false, onCreated, onCancel }) {
-  const [descricao, setDescricao] = useState('')
+  const { funcCod } = useParams()
+  const location = useLocation()
+  const selectedFunction = location.state?.funcao
+  const editing = !embedded && Boolean(funcCod)
+  const [descricao, setDescricao] = useState(selectedFunction?.func_desc || '')
+  const [loading, setLoading] = useState(editing)
   const [saving, setSaving] = useState(false)
   const [erro, setErro] = useState('')
   const navigate = useNavigate()
 
-  async function incluirFuncao(event) {
+  useEffect(() => {
+    if (!editing) return undefined
+
+    const controller = new AbortController()
+    async function carregarFuncao() {
+      const token = localStorage.getItem('token')
+      const expiry = Number(localStorage.getItem('tokenExpiresAt'))
+      if (!token || !expiry || expiry <= Date.now()) {
+        localStorage.removeItem('token')
+        localStorage.removeItem('tokenExpiresAt')
+        navigate('/Login')
+        return
+      }
+
+      try {
+        const response = await fetch(`http://${APIGERENCIADOR}/consultafuncoes/${encodeURIComponent(funcCod)}`, {
+          headers: { Authorization: `Bearer ${token}` },
+          signal: controller.signal
+        })
+        if (response.status === 401) {
+          localStorage.removeItem('token')
+          localStorage.removeItem('tokenExpiresAt')
+          navigate('/Login')
+          return
+        }
+        const data = await response.json()
+        if (!response.ok || !data.funcao) {
+          throw new Error(data.message || 'Não foi possível carregar a função')
+        }
+        setDescricao(data.funcao.func_desc)
+      } catch (error) {
+        if (error.name !== 'AbortError') setErro(error.message)
+      } finally {
+        if (!controller.signal.aborted) setLoading(false)
+      }
+    }
+
+    carregarFuncao()
+    return () => controller.abort()
+  }, [editing, funcCod, navigate])
+
+  async function salvarFuncao(event) {
     event.preventDefault()
     setErro('')
     const token = localStorage.getItem('token')
@@ -25,8 +71,12 @@ function CadFuncoes({ embedded = false, onCreated, onCancel }) {
 
     setSaving(true)
     try {
-      const response = await fetch(`http://${APIGERENCIADOR}/cadastrarfuncao`, {
-        method: 'POST',
+      const response = await fetch(
+        editing
+          ? `http://${APIGERENCIADOR}/consultafuncoes/${encodeURIComponent(funcCod)}`
+          : `http://${APIGERENCIADOR}/cadastrarfuncao`,
+        {
+        method: editing ? 'PUT' : 'POST',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`
@@ -35,13 +85,13 @@ function CadFuncoes({ embedded = false, onCreated, onCancel }) {
       })
       const data = await response.json()
       if (!response.ok || !data.success) {
-        throw new Error(data.message || 'Não foi possível cadastrar a função')
+        throw new Error(data.message || (editing ? 'Não foi possível atualizar a função' : 'Não foi possível cadastrar a função'))
       }
 
       if (onCreated) {
         onCreated(data.funcao)
       } else {
-        window.alert(`Função cadastrada com o código ${data.funcao.func_cod}.`)
+        window.alert(editing ? 'Função atualizada.' : `Função cadastrada com o código ${data.funcao.func_cod}.`)
         navigate('/ConsFuncoes')
       }
     } catch (error) {
@@ -52,7 +102,7 @@ function CadFuncoes({ embedded = false, onCreated, onCancel }) {
   }
 
   const form = (
-    <form className="cad-funcoes-form" onSubmit={incluirFuncao}>
+    <form className="cad-funcoes-form" onSubmit={salvarFuncao}>
       <div className="cad-funcoes-field">
         <label htmlFor={embedded ? 'nova-funcao-desc-modal' : 'nova-funcao-desc'}>Descrição da função</label>
         <input
@@ -64,8 +114,15 @@ function CadFuncoes({ embedded = false, onCreated, onCancel }) {
           onChange={(event) => setDescricao(event.target.value)}
           required
           autoFocus
+          disabled={loading || saving}
         />
       </div>
+      {editing && (
+        <div className="cad-funcoes-field">
+          <label htmlFor="funcao-codigo">Código</label>
+          <input id="funcao-codigo" type="text" value={funcCod} readOnly />
+        </div>
+      )}
       {erro && <p className="cad-funcoes-error" role="alert">{erro}</p>}
       <div className="cad-funcoes-actions">
         {embedded ? (
@@ -77,8 +134,8 @@ function CadFuncoes({ embedded = false, onCreated, onCancel }) {
             Voltar
           </Link>
         )}
-        <button className="cad-funcoes-action cad-funcoes-action--confirm" type="submit" disabled={saving}>
-          {saving ? 'Salvando...' : 'Incluir função'}
+        <button className="cad-funcoes-action cad-funcoes-action--confirm" type="submit" disabled={saving || loading}>
+          {loading ? 'Carregando...' : saving ? 'Salvando...' : editing ? 'Salvar alterações' : 'Incluir função'}
         </button>
       </div>
     </form>
@@ -103,7 +160,7 @@ function CadFuncoes({ embedded = false, onCreated, onCancel }) {
       <section className="cad-funcoes-content" aria-labelledby="cad-funcoes-title">
         <header className="cad-funcoes-header">
           <p>CADASTRO</p>
-          <h1 id="cad-funcoes-title">Função</h1>
+          <h1 id="cad-funcoes-title">{editing ? 'Editar função' : 'Função'}</h1>
         </header>
         {form}
       </section>

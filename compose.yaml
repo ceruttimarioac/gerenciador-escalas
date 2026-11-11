@@ -1,0 +1,26 @@
+services:
+  postgres:
+    image: postgres:17
+    restart: unless-stopped
+
+    environment:
+      POSTGRES_DB: gerenciador_escalas
+      POSTGRES_USER: escalas
+      POSTGRES_PASSWORD: escalas_dev_123
+
+    ports:
+      - "127.0.0.1:5433:5432"
+
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/init:/docker-entrypoint-initdb.d:ro
+
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U escalas -d gerenciador_escalas"]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+      start_period: 10s
+
+volumes:
+  postgres_data:

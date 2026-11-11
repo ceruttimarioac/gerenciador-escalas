@@ -97,10 +97,16 @@ function ConsFuncoes() {
             <p className="cons-funcoes-empty" role="alert">{error}</p>
           ) : functions.length ? (
             functions.map((item) => (
-              <div className="cons-funcoes-row" key={item.func_cod}>
+              <button
+                className="cons-funcoes-row"
+                type="button"
+                key={item.func_cod}
+                onClick={() => navigate(`/CadFuncoes/${item.func_cod}`, { state: { funcao: item } })}
+                aria-label={`Editar função ${item.func_desc}, código ${item.func_cod}`}
+              >
                 <span className="cons-funcoes-code">{item.func_cod}</span>
                 <span className="cons-funcoes-description">{item.func_desc}</span>
-              </div>
+              </button>
             ))
           ) : (
             <p className="cons-funcoes-empty">
