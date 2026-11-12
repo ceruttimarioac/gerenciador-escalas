@@ -29,26 +29,6 @@
 	font-size: 1.75rem;
 }
 
-.cad-usuarios-actions {
-	position: fixed;
-	z-index: 10;
-	right: 0;
-	bottom: 0;
-	left: 0;
-	padding: 0.8rem 1.25rem;
-	border-top: 1px solid #d8c18a;
-	background: rgba(221, 221, 221, 0.96);
-	box-sizing: border-box;
-}
-
-.cad-usuarios-actions__grid {
-	display: flex;
-	justify-content: space-between;
-	gap: 1rem;
-	width: min(100%, 60rem);
-	margin: 0 auto;
-}
-
 .cad-usuarios-action {
 	display: inline-flex;
 	justify-content: center;
@@ -109,14 +89,6 @@
 
 	.cad-usuarios-header h1 {
 		font-size: 1.4rem;
-	}
-
-	.cad-usuarios-actions {
-		padding: 0.7rem 1rem;
-	}
-
-	.cad-usuarios-actions__grid {
-		gap: 0.65rem;
 	}
 
 	.cad-usuarios-action {
@@ -417,7 +389,7 @@
 	color: #352b1b;
 	font-size: 0.85rem;
 	overflow: auto;
-	 overflow-wrap: anywhere;
+	overflow-wrap: anywhere;
 }
 
 .cad-usuarios-calendar-done {

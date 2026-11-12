@@ -1,7 +1,7 @@
 import { useEffect, useEffectEvent, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { APIGERENCIADOR } from '../../config-web'
-import './consusuarios.css'
+import '../consultas.css'
 
 function ConsUsuarios() {
   const [filtro, setFiltro] = useState('')

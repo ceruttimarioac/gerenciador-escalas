@@ -201,6 +201,10 @@
 		padding: 0.7rem 1rem;
 	}
 
+	.cons-usuarios-actions__inner {
+		gap: 0.65rem;
+	}
+
 	.cons-usuarios-action {
 		min-width: 0;
 		flex: 1;

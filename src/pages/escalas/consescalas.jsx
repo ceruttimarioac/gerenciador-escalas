@@ -1,7 +1,7 @@
 import { useEffect, useEffectEvent, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { APIGERENCIADOR } from '../../config-web'
-import './consescalas.css'
+import '../consultas.css'
 
 function ConsEscalas() {
   const [filtro, setFiltro] = useState('')
