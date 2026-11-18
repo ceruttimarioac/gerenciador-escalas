@@ -1,1 +1,1 @@
-export const APIGERENCIADOR = '127.0.0.1:3333';
+export const APIGERENCIADOR = '127.0.0.1:20222';

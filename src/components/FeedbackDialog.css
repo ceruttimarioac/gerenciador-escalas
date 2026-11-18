@@ -1,0 +1,80 @@
+.feedback-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 20000;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: rgba(37, 31, 22, 0.48);
+}
+
+.feedback-dialog {
+  width: min(100%, 26rem);
+  padding: 1.5rem;
+  border: 1px solid #e4d4ae;
+  border-radius: 10px;
+  background: #fffaf0;
+  box-shadow: 0 12px 32px rgba(67, 45, 12, 0.28);
+  color: #352b1b;
+}
+
+.feedback-dialog--error {
+  border-top: 4px solid #a34a34;
+}
+
+.feedback-dialog--success {
+  border-top: 4px solid #74853b;
+}
+
+.feedback-dialog--info {
+  border-top: 4px solid #9c6c16;
+}
+
+.feedback-dialog h2 {
+  margin: 0 0 0.75rem;
+  font-size: 1.25rem;
+}
+
+.feedback-dialog p {
+  margin: 0;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.feedback-dialog__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.65rem;
+  margin-top: 1.4rem;
+}
+
+.feedback-dialog__button {
+  min-width: 5rem;
+  padding: 0.65rem 1rem;
+  border: 0;
+  border-radius: 6px;
+  background: #9c6c16;
+  color: #fff;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.feedback-dialog__button:hover {
+  background: #7f5510;
+}
+
+.feedback-dialog__button:focus-visible {
+  outline: 2px solid #352b1b;
+  outline-offset: 3px;
+}
+
+.feedback-dialog__button--secondary {
+  border: 1px solid #9c6c16;
+  background: transparent;
+  color: #6d4a0f;
+}
+
+.feedback-dialog__button--secondary:hover {
+  background: #f3e7cc;
+}

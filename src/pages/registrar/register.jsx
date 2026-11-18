@@ -1,19 +1,27 @@
 import React, { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { APIGERENCIADOR } from '../../config-web'
+import { useFeedback } from '../../components/feedback-context.js'
 import '../autenticacao.css'
 
 function Registrar() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState(null)
   const navigate = useNavigate()
+  const { showFeedback } = useFeedback()
 
  async function controller(event) {
   event.preventDefault()
+  if (!event.currentTarget.checkValidity()) {
+    showFeedback('Informe um email válido e uma senha com pelo menos 6 caracteres.', {
+      title: 'Dados incompletos',
+      tone: 'error'
+    })
+    return
+  }
+
   setLoading(true)
-  setError(null)
 
   try {
     const response = await fetch('http://' + APIGERENCIADOR + '/registrar', {
@@ -31,16 +39,17 @@ function Registrar() {
     }
 
   if (data.success) {
-  window.alert('Registro realizado com sucesso! Faça login para continuar.')
-  navigate('/Login')
+  showFeedback('Registro realizado com sucesso! Faça login para continuar.', {
+    title: 'Registro concluído',
+    tone: 'success',
+    onOk: () => navigate('/Login')
+  })
   } else {
       throw new Error(data.message || 'Erro ao fazer registro')
     }
 
   } catch (err) {
-    setError(err.message)
-    console.log(err.message)
-    window.alert('Erro ao fazer registro: ' + err.message)
+    showFeedback(err.message, { title: 'Não foi possível fazer o registro', tone: 'error' })
   } finally {
     setLoading(false)
   }
@@ -50,7 +59,7 @@ function Registrar() {
     <main className="registrar-page">
       <section className="registrar-panel" aria-labelledby="login-title">
         <h1 id="login-title">Registrar</h1>
-        <form className="registrar-form" onSubmit={controller}>
+        <form className="registrar-form" onSubmit={controller} noValidate>
           <label htmlFor="email">Email</label>
           <input
             id="email"
@@ -70,6 +79,7 @@ function Registrar() {
             autoComplete="current-password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
+            minLength={6}
             required
           />
 

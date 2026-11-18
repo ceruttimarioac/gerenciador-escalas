@@ -1,115 +1,175 @@
-# Gerenciador de Escalas
+# Passo a passo para instalar e executar
 
-Aplicação web para gerenciar colaboradores, funções e escalas de trabalho. O projeto usa React/Vite no frontend, APIs Node.js e PostgreSQL para persistência.
+Este guia é para Windows e pressupõe que você já tem acesso à conta Google e ao projeto Firebase usados pelo sistema. Não crie outra conta ou projeto se já tiver acesso ao projeto existente.
 
-## Requisitos
+## 1. Instale os programas necessários
 
-- Node.js e npm
-- Docker Desktop com o engine Linux iniciado (Windows/macOS) ou Docker Engine com o plugin Docker Compose (Linux)
+Abra cada endereço no navegador e instale o programa com as opções recomendadas:
 
-## PostgreSQL com Docker
+1. Git: https://git-scm.com/download/win
+2. Node.js LTS: https://nodejs.org/en/download
+3. Docker Desktop: https://www.docker.com/products/docker-desktop/
 
-O arquivo `compose.yaml` define um serviço PostgreSQL 17. O banco é exposto somente no computador local, na porta `5433`, e usa o volume `postgres_data` para manter os dados entre reinicializações.
+Durante a instalação do Docker, aceite a instalação do WSL 2 caso seja solicitada. Reinicie o computador se o instalador pedir. Depois, abra o Docker Desktop e espere aparecer que ele está em execução.
 
-### Instalar o Docker
+## 2. Crie uma pasta na Área de Trabalho e baixe o projeto
 
-- **Windows/macOS:** instale o [Docker Desktop](https://www.docker.com/products/docker-desktop/). No Windows, habilite o WSL 2 caso o instalador solicite e aguarde o Docker Desktop indicar que está em execução.
-- **Linux:** instale o Docker Engine e o plugin Docker Compose para sua distribuição.
-
-Na pasta do projeto, confirme que o Docker está acessível:
-
-```powershell
-docker info
-docker compose version
-```
-
-Se `docker info` informar que não consegue conectar ao engine, inicie o Docker Desktop antes de executar os comandos seguintes.
-
-### Subir o banco
-
-Na raiz do projeto:
+1. Abra o Explorador de Arquivos com `Windows + E`.
+2. Abra a **Área de Trabalho**.
+3. Crie uma pasta chamada `ambiente`.
+4. Abra a pasta `ambiente`.
+5. Clique na barra de endereço do Explorador, digite `powershell` e pressione `Enter`.
+6. Na janela que abrir, copie e execute:
 
 ```powershell
-docker compose up -d postgres
-docker compose ps
-docker compose logs -f postgres
+git clone https://github.com/ceruttimarioac/gerenciador-escalas.git
+cd gerenciador-escalas
 ```
 
-O Compose cria o banco `gerenciador_escalas`, com usuário `escalas`, e executa os scripts SQL de `database/init` na primeira inicialização do volume. Quando o log indicar que o servidor está pronto para aceitar conexões, o banco pode ser usado. Para sair da visualização dos logs, pressione `Ctrl+C`; isso não para o container.
+Mantenha essa janela aberta. Os próximos comandos devem ser executados nela, dentro da pasta `gerenciador-escalas`.
 
-Para parar o serviço sem apagar os dados:
+## 3. Crie os arquivos de configuração
+
+Copie e execute estes três comandos no PowerShell:
 
 ```powershell
-docker compose down
+Copy-Item .\ApiGerenciador\config-apigerenciador-exemplo.js .\ApiGerenciador\config-apigerenciador.js
+Copy-Item .\ApiIa\config-apiia-exemplo.js .\ApiIa\config-apiia.js
+Copy-Item .\ApiRegistrador\config-apiregistrador-exemplo.js .\ApiRegistrador\config-apiregistrador.js
 ```
 
-Para iniciar novamente:
+Agora abra cada arquivo para editar:
 
 ```powershell
-docker compose up -d postgres
+notepad .\ApiGerenciador\config-apigerenciador.js
+notepad .\ApiIa\config-apiia.js
+notepad .\ApiRegistrador\config-apiregistrador.js
 ```
 
-### Configuração da conexão da API
+Execute um comando por vez. Depois de editar cada arquivo no Bloco de Notas, clique em **Arquivo > Salvar** e feche-o.
 
-As configurações locais do Registrador ficam em `ApiRegistrador/config-apiregistrador.js`. Esse arquivo é ignorado pelo Git, então ajuste-o na sua cópia local. Para executar as APIs diretamente no computador (fora do Docker), os valores do banco devem corresponder ao serviço do Compose:
+## 4. Pegue a chave do Firebase e habilite email e senha
+
+1. Abra https://console.firebase.google.com/
+2. Entre com a conta Google que já tem acesso ao projeto Firebase do sistema.
+3. Selecione o projeto existente do sistema. Não crie outro projeto.
+4. Clique na engrenagem ao lado de **Visão geral do projeto** e escolha **Configurações do projeto**.
+5. Na aba **Geral**, localize **Chave da API da Web** e copie o valor.
+6. No menu esquerdo, abra **Authentication** e depois **Sign-in method** ou **Método de login**.
+7. Abra **Email/Password** ou **E-mail/senha**, habilite a opção e clique em **Salvar**.
+
+Cole a chave da API da Web no campo `KEY_FIREBASE_API` de `ApiGerenciador/config-apigerenciador.js`. Mantenha as aspas:
 
 ```js
+export const KEY_FIREBASE_API = 'COLE_A_CHAVE_DA_API_WEB_AQUI'
+```
+
+## 5. Pegue a chave do Gemini
+
+1. Abra https://aistudio.google.com/app/apikey
+2. Entre com sua conta Google.
+3. Selecione um projeto Google ao qual você já tenha acesso.
+4. Clique em **Create API key** ou **Criar chave de API**. Se já tiver uma chave para esse projeto, pode reutilizá-la.
+5. Copie a chave e cole no campo `GEMINI_API_KEY` de `ApiIa/config-apiia.js`, mantendo as aspas:
+
+```js
+export const GEMINI_API_KEY = 'COLE_A_CHAVE_DO_GEMINI_AQUI'
+```
+
+## 6. Preencha os arquivos de configuração
+
+Use os valores abaixo nos arquivos que abriu. Substitua somente os textos indicados para as chaves.
+
+### `ApiGerenciador/config-apigerenciador.js`
+
+```js
+export const ADDRESS_WEB = 'http://localhost:5173'
+export const ADDRESS_API = '127.0.0.1'
+export const PORT_API = 20222
+export const ADDRESS_APIIA = '127.0.0.1:20221'
+export const ADDRESS_APIREGISTRADOR = '127.0.0.1:20220'
+export const KEY_FIREBASE_API = 'COLE_A_CHAVE_DA_API_WEB_AQUI'
+```
+
+### `ApiIa/config-apiia.js`
+
+```js
+export const ADDRESS_API = '127.0.0.1'
+export const PORT_API = 20221
+export const TIMEOUT_IA = 60000
+export const GEMINI_API_KEY = 'COLE_A_CHAVE_DO_GEMINI_AQUI'
+```
+
+### `ApiRegistrador/config-apiregistrador.js`
+
+```js
+export const ADDRESS_API = '127.0.0.1'
+export const PORT_API = '20220'
 export const IP_DB = '127.0.0.1'
-export const PORT_DB = 5433
+export const PORT_DB = '5433'
 export const USER_DB = 'escalas'
 export const PASSWORD_DB = 'escalas_dev_123'
 export const DATABASE_DB = 'gerenciador_escalas'
 ```
 
-Mantenha as demais configurações locais desse arquivo, como endereço e porta da API. O mapeamento `127.0.0.1:5433:5432` significa que a conexão do computador usa a porta `5433`; a porta interna do PostgreSQL no container continua sendo `5432`.
+Salve os três arquivos. Não cole suas chaves nos arquivos com `-exemplo.js` e não as envie em mensagens ou capturas de tela.
 
-Se futuramente executar a API dentro de um container na mesma rede do Compose, use `postgres` como host e `5432` como porta. Nesse cenário, o container da API deve estar conectado à rede do Compose.
+## 7. Inicie o banco de dados
 
-### Personalizar o banco
-
-As opções principais estão no serviço `postgres` de `compose.yaml`:
-
-- `POSTGRES_DB`: nome inicial do banco.
-- `POSTGRES_USER` e `POSTGRES_PASSWORD`: usuário e senha iniciais.
-- `ports`: porta e endereço expostos no computador. Por exemplo, para usar a porta local `5434`, altere para `"127.0.0.1:5434:5432"` e configure `PORT_DB = 5434` na API.
-- `postgres_data`: volume persistente do banco.
-- `./database/init:/docker-entrypoint-initdb.d:ro`: scripts SQL executados na primeira criação do banco/volume.
-
-Ao alterar nome do banco, usuário, senha ou porta, atualize também os valores correspondentes em `ApiRegistrador/config-apiregistrador.js`. As variáveis `POSTGRES_*` são aplicadas pelo container oficial ao inicializar um diretório de dados vazio; alterar esses valores depois que o volume já existe não recria o usuário/banco nem executa novamente os scripts.
-
-As credenciais incluídas no Compose são somente para desenvolvimento local. Use credenciais fortes e um mecanismo seguro de configuração de segredos fora do desenvolvimento; não exponha a porta do banco à rede pública.
-
-### Recriar o banco do zero
-
-**Atenção:** remover o volume apaga permanentemente os dados armazenados no PostgreSQL. Para recriar somente o volume deste projeto:
+Confirme que o Docker Desktop está aberto e em execução. No PowerShell, ainda dentro da pasta `gerenciador-escalas`, execute:
 
 ```powershell
-docker compose down
-docker volume rm gerenciador-escalas_postgres_data
 docker compose up -d postgres
+docker compose ps
 ```
 
-O script `database/init/001_schema.sql` será executado novamente na criação do volume vazio. Não é necessário remover o volume para iniciar ou parar normalmente o banco.
+Na coluna `STATUS`, espere aparecer `healthy`. Se aparecer `starting`, aguarde alguns segundos e execute `docker compose ps` novamente.
 
-## Instalar dependências e executar a aplicação
+Se aparecer erro informando que a porta `5433` já está em uso, outro programa ou container está usando essa porta. Feche o container antigo pelo Docker Desktop e repita o comando. Não apague volumes do Docker: eles podem conter dados.
 
-Depois de configurar o Docker e a conexão local da API:
+## 8. Instale os arquivos do projeto
+
+No mesmo PowerShell, execute:
 
 ```powershell
 npm install
+```
+
+Espere o comando terminar. Não feche a janela.
+
+## 9. Inicie o sistema
+
+Execute:
+
+```powershell
 npm run dev
 ```
 
-O script `dev` inicia o frontend e as APIs do projeto. Consulte as configurações locais ignoradas pelo Git (incluindo Firebase e outros serviços usados pelas APIs) e preencha os valores exigidos para seu ambiente antes de usar os recursos correspondentes.
+Deixe essa janela aberta enquanto estiver usando o sistema. Abra o navegador e acesse:
 
-## Scripts disponíveis
+http://localhost:5173
 
-| Comando | Descrição |
-| --- | --- |
-| `npm run dev` | Inicia frontend e APIs em modo de desenvolvimento. |
-| `npm run dev:frontend` | Inicia somente o frontend Vite. |
-| `npm run dev:apigerenciador` | Inicia somente a API Gerenciador. |
-| `npm run dev:apiregistrador` | Inicia somente a API Registrador. |
-| `npm run dev:apiia` | Inicia somente a API de IA. |
-| `npm run build` | Gera a build de produção do frontend. |
-| `npm run lint` | Executa o Oxlint. |
+## 10. Crie o primeiro usuário do sistema
+
+1. Na página de login, clique em **Registrar-se**.
+2. Cadastre um email e uma senha.
+3. Volte à página de login e entre com esse email e senha.
+4. No primeiro acesso, preencha os dados da empresa, do administrador e da função inicial.
+5. Depois da configuração, o sistema estará pronto para uso.
+
+## 11. Para parar e iniciar novamente
+
+Para parar o sistema, volte ao PowerShell onde executou `npm run dev` e pressione `Ctrl + C`.
+
+Para iniciar novamente:
+
+1. Abra o Docker Desktop e espere ficar em execução.
+2. Abra o PowerShell dentro da pasta `gerenciador-escalas`.
+3. Execute:
+
+```powershell
+docker compose up -d postgres
+npm run dev
+```
+
+Os dados do banco continuam salvos. Não use comandos para apagar volumes se quiser manter os dados.

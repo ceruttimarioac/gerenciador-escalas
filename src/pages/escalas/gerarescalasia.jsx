@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { APIGERENCIADOR } from '../../config-web'
+import { useFeedback } from '../../components/feedback-context.js'
 import './gerarescalasia.css'
 
 function GerarEscalasIA() {
     const navigate = useNavigate()
     const location = useLocation()
+    const { showFeedback, confirmFeedback } = useFeedback()
     const escalaSelecionada = location.state?.escala
     const codigoEscalaSelecionada = Number(escalaSelecionada?.esc_cod)
     const editandoEscala = Number.isSafeInteger(codigoEscalaSelecionada) &&
@@ -27,12 +29,8 @@ function GerarEscalasIA() {
     const [carregandoUsuarios, setCarregandoUsuarios] = useState(false)
     const [erroUsuarios, setErroUsuarios] = useState('')
     const [gerandoIA, setGerandoIA] = useState(false)
-    const [erroIA, setErroIA] = useState('')
-    const [mensagemIA, setMensagemIA] = useState('')
     const [salvando, setSalvando] = useState(false)
     const [salvas, setSalvas] = useState([])
-    const [erroSalvar, setErroSalvar] = useState('')
-    const [mensagemSalvar, setMensagemSalvar] = useState('')
     const [resultadoIncerto, setResultadoIncerto] = useState(false)
 
 
@@ -43,7 +41,11 @@ function GerarEscalasIA() {
             const token = localStorage.getItem('token')
 
             if (!token) {
-                navigate('/Login')
+                showFeedback('Sua sessão expirou. Entre novamente para continuar.', {
+                    title: 'Sessão expirada',
+                    tone: 'error',
+                    onOk: () => navigate('/Login')
+                })
                 return
             }
 
@@ -59,7 +61,13 @@ function GerarEscalasIA() {
                 )
 
                 if (response.status === 401) {
-                    navigate('/Login')
+                    localStorage.removeItem('token')
+                    localStorage.removeItem('tokenExpiresAt')
+                    showFeedback('Sua sessão expirou. Entre novamente para continuar.', {
+                        title: 'Sessão expirada',
+                        tone: 'error',
+                        onOk: () => navigate('/Login')
+                    })
                     return
                 }
 
@@ -73,6 +81,7 @@ function GerarEscalasIA() {
             } catch (error) {
                 if (error.name !== 'AbortError') {
                     setErro(error.message)
+                    showFeedback(error.message, { title: 'Não foi possível carregar funções', tone: 'error' })
                 }
             } finally {
                 if (!controller.signal.aborted) setCarregando(false)
@@ -82,7 +91,7 @@ function GerarEscalasIA() {
         carregarFuncoes()
 
         return () => controller.abort()
-    }, [navigate])
+    }, [navigate, showFeedback])
 
     useEffect(() => {
         if (!editandoEscala) return
@@ -92,7 +101,11 @@ function GerarEscalasIA() {
         async function carregarEscala() {
             const token = localStorage.getItem('token')
             if (!token) {
-                navigate('/Login')
+                showFeedback('Sua sessão expirou. Entre novamente para continuar.', {
+                    title: 'Sessão expirada',
+                    tone: 'error',
+                    onOk: () => navigate('/Login')
+                })
                 return
             }
 
@@ -106,7 +119,13 @@ function GerarEscalasIA() {
                 )
 
                 if (response.status === 401) {
-                    navigate('/Login')
+                    localStorage.removeItem('token')
+                    localStorage.removeItem('tokenExpiresAt')
+                    showFeedback('Sua sessão expirou. Entre novamente para continuar.', {
+                        title: 'Sessão expirada',
+                        tone: 'error',
+                        onOk: () => navigate('/Login')
+                    })
                     return
                 }
 
@@ -137,6 +156,7 @@ function GerarEscalasIA() {
             } catch (error) {
                 if (error.name !== 'AbortError') {
                     setErroEscala(error.message)
+                    showFeedback(error.message, { title: 'Não foi possível carregar a escala', tone: 'error' })
                 }
             } finally {
                 if (!controller.signal.aborted) setCarregandoEscala(false)
@@ -145,7 +165,7 @@ function GerarEscalasIA() {
 
         carregarEscala()
         return () => controller.abort()
-    }, [codigoEscalaSelecionada, editandoEscala, navigate])
+    }, [codigoEscalaSelecionada, editandoEscala, navigate, showFeedback])
 
     function adicionarFuncao() {
         if (gerandoIA || salvando ||
@@ -161,7 +181,7 @@ function GerarEscalasIA() {
                 (escala) => escala.esc_cod === codigoEscalaSelecionada
             )
             if (escalaAtual?.funcoes.length >= 30) {
-                window.alert('O limite é de 30 funções por escala.')
+                showFeedback('O limite é de 30 funções por escala.', { title: 'Limite atingido' })
                 return
             }
 
@@ -185,7 +205,7 @@ function GerarEscalasIA() {
         }
 
         if (funcoesSelecionadas.length >= 30) {
-            window.alert('O limite é de 30 funções por escala.')
+            showFeedback('O limite é de 30 funções por escala.', { title: 'Limite atingido' })
             return
         }
 
@@ -202,19 +222,19 @@ function GerarEscalasIA() {
     function adicionarEscala() {
         if (gerandoIA || salvando) return
         if (!data) {
-            window.alert('Selecione uma data.')
+            showFeedback('Selecione uma data.', { title: 'Dados incompletos', tone: 'error' })
             return
         }
 
         if (funcoesSelecionadas.length === 0) {
-            window.alert('Adicione pelo menos uma função.')
+            showFeedback('Adicione pelo menos uma função.', { title: 'Dados incompletos', tone: 'error' })
             return
         }
 
         if (escalas.some(
             (escala) => escala.data === data && escala.periodo === periodo
         )) {
-            window.alert('Esta data e período já foram adicionados.')
+            showFeedback('Esta data e período já foram adicionados.', { title: 'Escala duplicada', tone: 'error' })
             return
         }
 
@@ -249,7 +269,11 @@ function GerarEscalasIA() {
         const token = localStorage.getItem('token')
 
         if (!token) {
-            navigate('/Login')
+            showFeedback('Sua sessão expirou. Entre novamente para continuar.', {
+                title: 'Sessão expirada',
+                tone: 'error',
+                onOk: () => navigate('/Login')
+            })
             return
         }
 
@@ -274,7 +298,13 @@ function GerarEscalasIA() {
             )
 
             if (response.status === 401) {
-                navigate('/Login')
+                localStorage.removeItem('token')
+                localStorage.removeItem('tokenExpiresAt')
+                showFeedback('Sua sessão expirou. Entre novamente para continuar.', {
+                    title: 'Sessão expirada',
+                    tone: 'error',
+                    onOk: () => navigate('/Login')
+                })
                 return
             }
 
@@ -298,6 +328,8 @@ function GerarEscalasIA() {
             setUsuariosDisponiveis(usuariosFiltrados)
         } catch (error) {
             setErroUsuarios(error.message)
+            setSelecaoAberta(null)
+            showFeedback(error.message, { title: 'Não foi possível consultar colaboradores', tone: 'error' })
         } finally {
             setCarregandoUsuarios(false)
         }
@@ -305,7 +337,6 @@ function GerarEscalasIA() {
 
     function selecionarColaborador(escalaId, funcaoId, usuario) {
         if (gerandoIA || salvando || salvas.includes(escalaId)) return
-        setMensagemIA('')
         setEscalas((anteriores) =>
             anteriores.map((escala) =>
                 escala.id === escalaId
@@ -332,9 +363,35 @@ function GerarEscalasIA() {
         setErroUsuarios('')
     }
 
+    function limparColaborador(escalaId, funcaoId) {
+        if (gerandoIA || salvando || salvas.includes(escalaId)) return
+        setEscalas((anteriores) =>
+            anteriores.map((escala) =>
+                escala.id === escalaId
+                    ? {
+                        ...escala,
+                        funcoes: escala.funcoes.map((funcao) =>
+                            funcao.id === funcaoId
+                                ? {
+                                    ...funcao,
+                                    user_cod: null,
+                                    user_nome: '',
+                                    cod_user_func: null,
+                                    origem: null
+                                }
+                                : funcao
+                        )
+                    }
+                    : escala
+            )
+        )
+        setSelecaoAberta(null)
+        setUsuariosDisponiveis([])
+        setErroUsuarios('')
+    }
+
     function removerEscala(id) {
         if (gerandoIA || salvando || salvas.includes(id)) return
-        setMensagemIA('')
         setEscalas((anteriores) =>
             anteriores.filter((escala) => escala.id !== id)
         )
@@ -342,7 +399,6 @@ function GerarEscalasIA() {
 
     function removerFuncaoDaEscala(escalaId, funcaoId) {
         if (gerandoIA || salvando || salvas.includes(escalaId)) return
-        setMensagemIA('')
         setSelecaoAberta(null)
         setEscalas((anteriores) => {
             const atualizadas = anteriores.map((escala) =>
@@ -358,11 +414,12 @@ function GerarEscalasIA() {
 
     async function gerarComIA() {
         if (gerandoIA || salvando || salvas.length > 0 || resultadoIncerto) return
-        setErroIA('')
-        setMensagemIA('')
 
         if (escalas.length === 0) {
-            setErroIA('Adicione pelo menos uma escala ao planejamento.')
+            showFeedback('Adicione pelo menos uma escala ao planejamento.', {
+                title: 'Planejamento vazio',
+                tone: 'error'
+            })
             return
         }
 
@@ -372,13 +429,17 @@ function GerarEscalasIA() {
         const vazias = posicoes.filter(({ funcao }) => funcao.origem !== 'manual')
 
         if (vazias.length === 0) {
-            setMensagemIA('Todas as vagas já foram preenchidas manualmente.')
+            showFeedback('Todas as vagas já foram preenchidas manualmente.')
             return
         }
 
         const token = localStorage.getItem('token')
         if (!token) {
-            navigate('/Login')
+            showFeedback('Sua sessão expirou. Entre novamente para continuar.', {
+                title: 'Sessão expirada',
+                tone: 'error',
+                onOk: () => navigate('/Login')
+            })
             return
         }
 
@@ -412,7 +473,13 @@ function GerarEscalasIA() {
             })
 
             if (response.status === 401) {
-                navigate('/Login')
+                localStorage.removeItem('token')
+                localStorage.removeItem('tokenExpiresAt')
+                showFeedback('Sua sessão expirou. Entre novamente para continuar.', {
+                    title: 'Sessão expirada',
+                    tone: 'error',
+                    onOk: () => navigate('/Login')
+                })
                 return
             }
 
@@ -463,9 +530,15 @@ function GerarEscalasIA() {
             const preenchidas = resultado.escalas.filter((item) =>
                 item.origem === 'ia' && item.userCod != null
             ).length
-            setMensagemIA(`Sugestões recebidas: ${preenchidas} vaga(s) preenchida(s) pela IA. Revise antes de salvar.`)
+            showFeedback(
+                `Sugestões recebidas: ${preenchidas} vaga(s) preenchida(s) pela IA. Revise antes de salvar.`,
+                { title: 'Sugestões geradas', tone: 'success' }
+            )
         } catch (error) {
-            setErroIA(error.message || 'Erro ao gerar escalas com IA.')
+            showFeedback(error.message || 'Erro ao gerar escalas com IA.', {
+                title: 'Não foi possível gerar as escalas',
+                tone: 'error'
+            })
         } finally {
             setGerandoIA(false)
         }
@@ -473,12 +546,10 @@ function GerarEscalasIA() {
 
     async function salvarEscalas() {
         if (salvando || gerandoIA || resultadoIncerto) return
-        setErroSalvar('')
-        setMensagemSalvar('')
 
         const pendentes = escalas.filter((escala) => !salvas.includes(escala.id))
         if (pendentes.length === 0) {
-            setErroSalvar('Não há escalas pendentes para salvar.')
+            showFeedback('Não há escalas pendentes para salvar.', { title: 'Nada para salvar' })
             return
         }
 
@@ -490,28 +561,39 @@ function GerarEscalasIA() {
                     !Number.isSafeInteger(Number(funcao.user_cod)) ||
                     Number(funcao.user_cod) < 1
                 )) {
-                setErroSalvar('Preencha todas as vagas antes de salvar.')
+                showFeedback('Preencha todas as vagas antes de salvar.', {
+                    title: 'Escala incompleta',
+                    tone: 'error'
+                })
                 return
             }
 
             const usuarios = escala.funcoes.map((funcao) => String(funcao.user_cod))
             if (new Set(usuarios).size !== usuarios.length) {
-                setErroSalvar(`Há colaboradores repetidos na escala de ${escala.data} — ${escala.periodo}.`)
+                showFeedback(`Há colaboradores repetidos na escala de ${escala.data} — ${escala.periodo}.`, {
+                    title: 'Colaborador repetido',
+                    tone: 'error'
+                })
                 return
             }
         }
 
         const token = localStorage.getItem('token')
         if (!token) {
-            navigate('/Login')
+            showFeedback('Sua sessão expirou. Entre novamente para continuar.', {
+                title: 'Sessão expirada',
+                tone: 'error',
+                onOk: () => navigate('/Login')
+            })
             return
         }
 
-        const confirmacao = window.confirm(
+        const confirmacao = await confirmFeedback(
             editandoEscala
                 ? `Confirmar a atualização da escala ${codigoEscalaSelecionada}?`
                 : `Confirmar o cadastro de ${pendentes.length} escala(s) no banco de dados? ` +
-                    'Essa operação grava as escalas definitivamente.'
+                    'Essa operação grava as escalas definitivamente.',
+            { title: 'Confirmar gravação', confirmLabel: 'OK, continuar' }
         )
         if (!confirmacao) return
 
@@ -568,7 +650,10 @@ function GerarEscalasIA() {
                 }
 
                 setSalvas([escala.id])
-                setMensagemSalvar(resultado.message || 'Escala atualizada com sucesso.')
+                showFeedback(resultado.message || 'Escala atualizada com sucesso.', {
+                    title: 'Escala atualizada',
+                    tone: 'success'
+                })
                 return
             }
 
@@ -622,15 +707,18 @@ function GerarEscalasIA() {
 
                 quantidadeSalva += 1
                 setSalvas((anteriores) => [...anteriores, escala.id])
-                setMensagemSalvar(`${quantidadeSalva} escala(s) salva(s) nesta operação.`)
             }
 
-            setMensagemSalvar(`${quantidadeSalva} escala(s) salva(s) com sucesso!`)
+            showFeedback(`${quantidadeSalva} escala(s) salva(s) com sucesso!`, {
+                title: 'Escalas salvas',
+                tone: 'success'
+            })
         } catch (error) {
-            setErroSalvar(
+            showFeedback(
                 `${error.message} ${quantidadeSalva > 0
                     ? `${quantidadeSalva} escala(s) já foram salvas e não serão enviadas novamente.`
-                    : ''}`
+                    : ''}`,
+                { title: 'Não foi possível salvar as escalas', tone: 'error' }
             )
         } finally {
             setSalvando(false)
@@ -757,9 +845,6 @@ function GerarEscalasIA() {
                         </button>
                     </div>
 
-                    {erro && <p className="cad-escalas-error">{erro}</p>}
-                    {erroEscala && <p className="cad-escalas-error" role="alert">{erroEscala}</p>}
-
                     {!editandoEscala && <h3>Funções selecionadas</h3>}
 
                     {!editandoEscala && funcoesSelecionadas.map((funcao) => (
@@ -829,20 +914,27 @@ function GerarEscalasIA() {
                                     {selecaoAberta === funcao.id && (
                                         <div className="cad-escalas-user-panel ia-plano-opcoes">
                                             <h4>Colaboradores disponíveis</h4>
+                                            {funcao.user_cod != null && (
+                                                <button type="button" className="cad-escalas-user-option"
+                                                    onClick={() => limparColaborador(escala.id, funcao.id)}
+                                                    disabled={gerandoIA || salvando}>
+                                                    Deixar em branco para a IA
+                                                </button>
+                                            )}
                                             {carregandoUsuarios ? (
                                                 <p>Carregando colaboradores...</p>
-                                            ) : erroUsuarios ? (
-                                                <p className="cad-escalas-error">{erroUsuarios}</p>
-                                            ) : usuariosDisponiveis.length === 0 ? (
-                                                <p>Nenhum colaborador disponível.</p>
-                                            ) : usuariosDisponiveis.map((usuario) => (
-                                                <button key={usuario.cod_user_func} type="button"
-                                                    className="cad-escalas-user-option"
-                                                    onClick={() => selecionarColaborador(escala.id, funcao.id, usuario)}
-                                                    disabled={gerandoIA || salvando}>
-                                                    {usuario.user_nome}
-                                                </button>
-                                            ))}
+                                            ) : erroUsuarios ? null : (
+                                                usuariosDisponiveis.length === 0 ? (
+                                                    <p>Nenhum colaborador disponível.</p>
+                                                ) : usuariosDisponiveis.map((usuario) => (
+                                                    <button key={usuario.cod_user_func} type="button"
+                                                        className="cad-escalas-user-option"
+                                                        onClick={() => selecionarColaborador(escala.id, funcao.id, usuario)}
+                                                        disabled={gerandoIA || salvando}>
+                                                        {usuario.user_nome}
+                                                    </button>
+                                                ))
+                                            )}
                                         </div>
                                     )}
                                 </div>
@@ -888,16 +980,6 @@ function GerarEscalasIA() {
                 </div>
             </div>
 
-            {erroIA && <p className="cad-escalas-error" role="alert">{erroIA}</p>}
-            {mensagemIA && <p role="status">{mensagemIA}</p>}
-            {erroSalvar && <p className="cad-escalas-error" role="alert">{erroSalvar}</p>}
-            {mensagemSalvar && <p role="status">{mensagemSalvar}</p>}
-            {resultadoIncerto && (
-                <p role="alert">
-                    O resultado de uma gravação é incerto. Consulte as escalas cadastradas
-                    antes de realizar qualquer nova tentativa. Recarregue a página após conferir.
-                </p>
-            )}
         </section>
         </main >
     )

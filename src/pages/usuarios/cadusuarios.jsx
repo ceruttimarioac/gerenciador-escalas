@@ -1,6 +1,7 @@
 import { useEffect, useEffectEvent, useState } from 'react'
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { APIGERENCIADOR } from '../../config-web'
+import { useFeedback } from '../../components/feedback-context.js'
 import CadFuncoes from '../funcoes/cadfuncoes.jsx'
 import './cadusuarios.css'
 
@@ -45,9 +46,9 @@ function CadUsuarios() {
   const [loadingFunctions, setLoadingFunctions] = useState(false)
   const [loadingUser, setLoadingUser] = useState(editing)
   const [saving, setSaving] = useState(false)
-  const [erro, setErro] = useState('')
   const [erroFuncoes, setErroFuncoes] = useState('')
   const navigate = useNavigate()
+  const { showFeedback } = useFeedback()
 
   const carregarUsuario = useEffectEvent(async () => {
     const token = localStorage.getItem('token')
@@ -55,7 +56,11 @@ function CadUsuarios() {
     if (!token || !expiry || expiry <= Date.now()) {
       localStorage.removeItem('token')
       localStorage.removeItem('tokenExpiresAt')
-      navigate('/Login')
+      showFeedback('Sua sessão expirou. Entre novamente para continuar.', {
+        title: 'Sessão expirada',
+        tone: 'error',
+        onOk: () => navigate('/Login')
+      })
       return
     }
 
@@ -75,7 +80,7 @@ function CadUsuarios() {
         setFuncao({ func_cod: data.usuario.func_cod, func_desc: data.usuario.func_desc || '' })
       }
     } catch (error) {
-      setErro(error.message)
+      showFeedback(error.message, { title: 'Não foi possível carregar o colaborador', tone: 'error' })
     } finally {
       setLoadingUser(false)
     }
@@ -103,6 +108,7 @@ function CadUsuarios() {
     } catch (error) {
       setErroFuncoes(error.message)
       setFuncoes([])
+      showFeedback(error.message, { title: 'Não foi possível consultar funções', tone: 'error' })
     } finally {
       setLoadingFunctions(false)
     }
@@ -110,9 +116,19 @@ function CadUsuarios() {
 
   async function salvarUsuario(event) {
     event.preventDefault()
-    setErro('')
+    if (!event.currentTarget.checkValidity() || !nome.trim()) {
+      showFeedback('Preencha os campos obrigatórios com valores válidos.', {
+        title: 'Dados incompletos',
+        tone: 'error'
+      })
+      return
+    }
+
     if (!funcao) {
-      setErro('Selecione uma função para o colaborador')
+      showFeedback('Selecione uma função para o colaborador.', {
+        title: 'Dados incompletos',
+        tone: 'error'
+      })
       return
     }
 
@@ -121,7 +137,11 @@ function CadUsuarios() {
     if (!token || !expiry || expiry <= Date.now()) {
       localStorage.removeItem('token')
       localStorage.removeItem('tokenExpiresAt')
-      navigate('/Login')
+      showFeedback('Sua sessão expirou. Entre novamente para continuar.', {
+        title: 'Sessão expirada',
+        tone: 'error',
+        onOk: () => navigate('/Login')
+      })
       return
     }
 
@@ -147,10 +167,16 @@ function CadUsuarios() {
         throw new Error(data.message || (hasCodigo ? 'Não foi possível atualizar o colaborador' : 'Não foi possível cadastrar o colaborador'))
       }
       setPassword('')
-      window.alert(hasCodigo ? 'Colaborador atualizado.' : `Colaborador cadastrado com o código ${data.usuario.user_cod}.`)
-      navigate('/ConsUsuarios')
+      showFeedback(
+        hasCodigo ? 'Colaborador atualizado.' : `Colaborador cadastrado com o código ${data.usuario.user_cod}.`,
+        {
+          title: hasCodigo ? 'Colaborador atualizado' : 'Colaborador cadastrado',
+          tone: 'success',
+          onOk: () => navigate('/ConsUsuarios')
+        }
+      )
     } catch (error) {
-      setErro(error.message)
+      showFeedback(error.message, { title: 'Não foi possível salvar o colaborador', tone: 'error' })
     } finally {
       setSaving(false)
     }
@@ -175,7 +201,7 @@ function CadUsuarios() {
           <h1 id="cad-usuarios-title">{hasCodigo ? 'Editar colaborador' : 'Colaborador'}</h1>
         </header>
 
-        <form className="cad-usuarios-form" onSubmit={salvarUsuario}>
+        <form className="cad-usuarios-form" onSubmit={salvarUsuario} noValidate>
           <div className="cad-usuarios-field">
             <label htmlFor="usuario-nome">Nome</label>
             <input id="usuario-nome" type="text" autoComplete="name" maxLength={120} value={nome} onChange={(event) => setNome(event.target.value)} required disabled={loadingUser} />
@@ -231,7 +257,6 @@ function CadUsuarios() {
               {funcao ? `${funcao.func_cod} - ${funcao.func_desc}` : 'Selecionar função'}
             </button>
           </div>
-          {erro && <p className="cad-usuarios-error" role="alert">{erro}</p>}
           <div className="cad-usuarios-form-actions">
             <Link className="cad-usuarios-action cad-usuarios-action--back" to="/ConsUsuarios">Voltar</Link>
             <button className="cad-usuarios-action cad-usuarios-action--confirm" type="submit" disabled={saving || loadingUser}>
@@ -253,7 +278,7 @@ function CadUsuarios() {
               <input id="pesquisa-funcao" type="search" value={pesquisaFuncao} onChange={(event) => { setPesquisaFuncao(event.target.value); consultarFuncoes(event.target.value) }} />
             </label>
             <div className="cad-usuarios-function-list" aria-live="polite">
-              {loadingFunctions ? <p>Consultando funções...</p> : erroFuncoes ? <p className="cad-usuarios-error" role="alert">{erroFuncoes}</p> : funcoes.length ? funcoes.map((item) => (
+              {loadingFunctions ? <p>Consultando funções...</p> : erroFuncoes ? null : funcoes.length ? funcoes.map((item) => (
                 <button className="cad-usuarios-function-option" type="button" key={item.func_cod} onClick={() => { setFuncao(item); setShowFunctionPicker(false) }}>
                   <strong>{item.func_cod}</strong><span>{item.func_desc}</span>
                 </button>

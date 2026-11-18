@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { APIGERENCIADOR } from '../../config-web'
+import { useFeedback } from '../../components/feedback-context.js'
 import './admin.css'
 
 function Admin() {
   const location = useLocation()
   const navigate = useNavigate()
+  const { showFeedback } = useFeedback()
   const setupToken = location.state?.adminBootstrap ? location.state.token : ''
   const expiresIn = Number(location.state?.expiresIn || 3600)
   const accountEmail = location.state?.email || ''
@@ -23,8 +25,6 @@ function Admin() {
   const [userPassword, setUserPassword] = useState('')
   const [functionCode, setFunctionCode] = useState('')
   const [saving, setSaving] = useState(false)
-  const [error, setError] = useState('')
-  const [notice, setNotice] = useState('')
 
   useEffect(() => {
     if (!hasBootstrapAccess) navigate('/Login', { replace: true })
@@ -38,29 +38,43 @@ function Admin() {
       try {
         const headers = { Authorization: `Bearer ${setupToken}` }
         const response = await fetch(`http://${APIGERENCIADOR}/contexto`, { headers })
-        if (!response.ok) return
         const data = await response.json()
+        if (response.status === 404) return
+        if (!response.ok) throw new Error(data.message || 'Não foi possível carregar a empresa')
         if (!active) return
 
         setCompany(data)
         const functionsResponse = await fetch(`http://${APIGERENCIADOR}/consultafuncoes`, { headers })
-        if (!functionsResponse.ok) return
         const functionData = await functionsResponse.json()
+        if (!functionsResponse.ok) {
+          throw new Error(functionData.message || 'Não foi possível carregar as funções')
+        }
         if (active && Array.isArray(functionData.funcoes)) setFunctions(functionData.funcoes)
-      } catch {}
+      } catch (requestError) {
+        if (active) {
+          showFeedback(requestError.message, { title: 'Não foi possível carregar a configuração', tone: 'error' })
+        }
+      }
     }
 
     loadCompanyContext()
     return () => {
       active = false
     }
-  }, [hasBootstrapAccess, setupToken])
+  }, [hasBootstrapAccess, setupToken, showFeedback])
 
   async function submitInitialSetup(event) {
     event.preventDefault()
+    if (!event.currentTarget.checkValidity() ||
+      !companyName.trim() || !initialUserName.trim() || !initialFunction.trim()) {
+      showFeedback('Preencha os campos obrigatórios com valores válidos.', {
+        title: 'Dados incompletos',
+        tone: 'error'
+      })
+      return
+    }
+
     setSaving(true)
-    setError('')
-    setNotice('')
     try {
       const response = await fetch(`http://${APIGERENCIADOR}/admin/empresa`, {
         method: 'POST',
@@ -82,9 +96,12 @@ function Admin() {
       setCompany(data.empresa)
       setFunctions([data.funcao])
       setFunctionCode(String(data.funcao.func_cod))
-      setNotice('Empresa, usuário administrador e função inicial cadastrados.')
+      showFeedback('Empresa, usuário administrador e função inicial cadastrados.', {
+        title: 'Configuração concluída',
+        tone: 'success'
+      })
     } catch (requestError) {
-      setError(requestError.message)
+      showFeedback(requestError.message, { title: 'Não foi possível configurar a empresa', tone: 'error' })
     } finally {
       setSaving(false)
     }
@@ -92,9 +109,12 @@ function Admin() {
 
   async function submitFunction(event) {
     event.preventDefault()
+    if (!event.currentTarget.checkValidity() || !functionDescription.trim()) {
+      showFeedback('Informe a descrição da função.', { title: 'Dados incompletos', tone: 'error' })
+      return
+    }
+
     setSaving(true)
-    setError('')
-    setNotice('')
     try {
       const response = await fetch(`http://${APIGERENCIADOR}/cadastrarfuncao`, {
         method: 'POST',
@@ -111,9 +131,12 @@ function Admin() {
       setFunctions((current) => [...current, data.funcao])
       setFunctionCode(String(data.funcao.func_cod))
       setFunctionDescription('')
-      setNotice(`Função ${data.funcao.func_cod} cadastrada.`)
+      showFeedback(`Função ${data.funcao.func_cod} cadastrada.`, {
+        title: 'Função cadastrada',
+        tone: 'success'
+      })
     } catch (requestError) {
-      setError(requestError.message)
+      showFeedback(requestError.message, { title: 'Não foi possível cadastrar a função', tone: 'error' })
     } finally {
       setSaving(false)
     }
@@ -121,9 +144,15 @@ function Admin() {
 
   async function submitUser(event) {
     event.preventDefault()
+    if (!event.currentTarget.checkValidity() || !userName.trim()) {
+      showFeedback('Preencha os campos obrigatórios com valores válidos.', {
+        title: 'Dados incompletos',
+        tone: 'error'
+      })
+      return
+    }
+
     setSaving(true)
-    setError('')
-    setNotice('')
     try {
       const response = await fetch(`http://${APIGERENCIADOR}/cadastrarusuario`, {
         method: 'POST',
@@ -145,9 +174,12 @@ function Admin() {
       setUserName('')
       setUserEmail('')
       setUserPassword('')
-      setNotice(`Usuário ${data.usuario.user_cod} cadastrado.`)
+      showFeedback(`Usuário ${data.usuario.user_cod} cadastrado.`, {
+        title: 'Usuário cadastrado',
+        tone: 'success'
+      })
     } catch (requestError) {
-      setError(requestError.message)
+      showFeedback(requestError.message, { title: 'Não foi possível cadastrar o usuário', tone: 'error' })
     } finally {
       setSaving(false)
     }
@@ -173,16 +205,13 @@ function Admin() {
         {company && <button className="admin-home-button" type="button" onClick={goToHome}>Ir para Home</button>}
       </header>
 
-      {error && <p className="admin-message admin-message--error" role="alert">{error}</p>}
-      {notice && <p className="admin-message admin-message--success" role="status">{notice}</p>}
-
       {!company ? (
         <section className="admin-section" aria-labelledby="admin-company-title">
           <header className="admin-section__header">
             <h2 id="admin-company-title">Empresa e primeiro acesso</h2>
             <p>O acesso autenticado será associado ao usuário administrador da empresa.</p>
           </header>
-          <form className="admin-form" onSubmit={submitInitialSetup}>
+          <form className="admin-form" onSubmit={submitInitialSetup} noValidate>
             <div className="admin-field">
               <label htmlFor="admin-company-name">Nome da empresa</label>
               <input id="admin-company-name" type="text" maxLength={120} value={companyName} onChange={(event) => setCompanyName(event.target.value)} required />
@@ -232,7 +261,7 @@ function Admin() {
             <ul className="admin-function-list">
               {functions.map((item) => <li key={item.func_cod}><strong>{item.func_cod}</strong><span>{item.func_desc}</span></li>)}
             </ul>
-            <form className="admin-form admin-form--single" onSubmit={submitFunction}>
+            <form className="admin-form admin-form--single" onSubmit={submitFunction} noValidate>
               <div className="admin-field">
                 <label htmlFor="admin-function-description">Descrição da função</label>
                 <input id="admin-function-description" type="text" maxLength={200} value={functionDescription} onChange={(event) => setFunctionDescription(event.target.value)} required />
@@ -247,7 +276,7 @@ function Admin() {
             <header className="admin-section__header">
               <h2 id="admin-user-title">Novo usuário</h2>
             </header>
-            <form className="admin-form" onSubmit={submitUser}>
+            <form className="admin-form" onSubmit={submitUser} noValidate>
               <div className="admin-field">
                 <label htmlFor="admin-user-name">Nome</label>
                 <input id="admin-user-name" type="text" autoComplete="name" maxLength={120} value={userName} onChange={(event) => setUserName(event.target.value)} required />

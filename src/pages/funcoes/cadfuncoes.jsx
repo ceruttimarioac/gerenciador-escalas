@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { APIGERENCIADOR } from '../../config-web'
+import { useFeedback } from '../../components/feedback-context.js'
 import './cadfuncoes.css'
 
 function CadFuncoes({ embedded = false, onCreated, onCancel }) {
@@ -11,8 +12,8 @@ function CadFuncoes({ embedded = false, onCreated, onCancel }) {
   const [descricao, setDescricao] = useState(selectedFunction?.func_desc || '')
   const [loading, setLoading] = useState(editing)
   const [saving, setSaving] = useState(false)
-  const [erro, setErro] = useState('')
   const navigate = useNavigate()
+  const { showFeedback } = useFeedback()
 
   useEffect(() => {
     if (!editing) return undefined
@@ -36,7 +37,11 @@ function CadFuncoes({ embedded = false, onCreated, onCancel }) {
         if (response.status === 401) {
           localStorage.removeItem('token')
           localStorage.removeItem('tokenExpiresAt')
-          navigate('/Login')
+          showFeedback('Sua sessão expirou. Entre novamente para continuar.', {
+            title: 'Sessão expirada',
+            tone: 'error',
+            onOk: () => navigate('/Login')
+          })
           return
         }
         const data = await response.json()
@@ -45,7 +50,9 @@ function CadFuncoes({ embedded = false, onCreated, onCancel }) {
         }
         setDescricao(data.funcao.func_desc)
       } catch (error) {
-        if (error.name !== 'AbortError') setErro(error.message)
+        if (error.name !== 'AbortError') {
+          showFeedback(error.message, { title: 'Não foi possível carregar a função', tone: 'error' })
+        }
       } finally {
         if (!controller.signal.aborted) setLoading(false)
       }
@@ -53,11 +60,15 @@ function CadFuncoes({ embedded = false, onCreated, onCancel }) {
 
     carregarFuncao()
     return () => controller.abort()
-  }, [editing, funcCod, navigate])
+  }, [editing, funcCod, navigate, showFeedback])
 
   async function salvarFuncao(event) {
     event.preventDefault()
-    setErro('')
+    if (!event.currentTarget.checkValidity() || !descricao.trim()) {
+      showFeedback('Informe a descrição da função.', { title: 'Dados incompletos', tone: 'error' })
+      return
+    }
+
     const token = localStorage.getItem('token')
     const expiry = Number(localStorage.getItem('tokenExpiresAt'))
     if (!token || !expiry || expiry <= Date.now()) {
@@ -65,7 +76,11 @@ function CadFuncoes({ embedded = false, onCreated, onCancel }) {
       localStorage.removeItem('tokenExpiresAt')
       localStorage.removeItem('emp_id')
       localStorage.removeItem('user_cod')
-      navigate('/Login')
+      showFeedback('Sua sessão expirou. Entre novamente para continuar.', {
+        title: 'Sessão expirada',
+        tone: 'error',
+        onOk: () => navigate('/Login')
+      })
       return
     }
 
@@ -90,19 +105,26 @@ function CadFuncoes({ embedded = false, onCreated, onCancel }) {
 
       if (onCreated) {
         onCreated(data.funcao)
+        showFeedback('Função cadastrada e selecionada.', { title: 'Função cadastrada', tone: 'success' })
       } else {
-        window.alert(editing ? 'Função atualizada.' : `Função cadastrada com o código ${data.funcao.func_cod}.`)
-        navigate('/ConsFuncoes')
+        showFeedback(
+          editing ? 'Função atualizada.' : `Função cadastrada com o código ${data.funcao.func_cod}.`,
+          {
+            title: editing ? 'Função atualizada' : 'Função cadastrada',
+            tone: 'success',
+            onOk: () => navigate('/ConsFuncoes')
+          }
+        )
       }
     } catch (error) {
-      setErro(error.message)
+      showFeedback(error.message, { title: 'Não foi possível salvar a função', tone: 'error' })
     } finally {
       setSaving(false)
     }
   }
 
   const form = (
-    <form className="cad-funcoes-form" onSubmit={salvarFuncao}>
+    <form className="cad-funcoes-form" onSubmit={salvarFuncao} noValidate>
       <div className="cad-funcoes-field">
         <label htmlFor={embedded ? 'nova-funcao-desc-modal' : 'nova-funcao-desc'}>Descrição da função</label>
         <input
@@ -123,7 +145,6 @@ function CadFuncoes({ embedded = false, onCreated, onCancel }) {
           <input id="funcao-codigo" type="text" value={funcCod} readOnly />
         </div>
       )}
-      {erro && <p className="cad-funcoes-error" role="alert">{erro}</p>}
       <div className="cad-funcoes-actions">
         {embedded ? (
           <button className="cad-funcoes-action cad-funcoes-action--back" type="button" onClick={onCancel}>

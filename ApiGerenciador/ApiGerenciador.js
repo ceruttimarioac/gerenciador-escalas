@@ -2,14 +2,14 @@ import fastify from 'fastify'
 import cors from '@fastify/cors'
 import { 
   ADDRESS_WEB, ADDRESS_API, PORT_API, 
-  ADDRESS_APIGERENCIADOR, ADDRESS_APIIA, 
+  ADDRESS_APIREGISTRADOR, ADDRESS_APIIA, 
   KEY_FIREBASE_API 
 } from './config-apigerenciador.js'
 
 const app = fastify({ logger: false });
 
 // instancia as variáveis de ambiente para as URLs das APIs
-const API_REGISTRADOR_URL = process.env.API_REGISTRADOR_URL || `http://${ADDRESS_APIGERENCIADOR}`;
+const API_REGISTRADOR_URL = process.env.API_REGISTRADOR_URL || `http://${ADDRESS_APIREGISTRADOR}`;
 const API_IA_URL = process.env.API_IA_URL || `http://${ADDRESS_APIIA}`;
 
 

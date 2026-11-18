@@ -1,6 +1,7 @@
 import { useEffect, useEffectEvent, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { APIGERENCIADOR } from '../../config-web'
+import { useFeedback } from '../../components/feedback-context.js'
 import './consfuncoes.css'
 
 function ConsFuncoes() {
@@ -10,6 +11,7 @@ function ConsFuncoes() {
   const [error, setError] = useState('')
   const requestController = useRef(null)
   const navigate = useNavigate()
+  const { showFeedback } = useFeedback()
 
   async function loadFunctions(value, initial = false) {
     requestController.current?.abort()
@@ -18,7 +20,11 @@ function ConsFuncoes() {
     if (!token || !expiry || expiry <= Date.now()) {
       localStorage.removeItem('token')
       localStorage.removeItem('tokenExpiresAt')
-      navigate('/Login')
+      showFeedback('Sua sessão expirou. Entre novamente para continuar.', {
+        title: 'Sessão expirada',
+        tone: 'error',
+        onOk: () => navigate('/Login')
+      })
       return
     }
 
@@ -38,7 +44,11 @@ function ConsFuncoes() {
       if (response.status === 401) {
         localStorage.removeItem('token')
         localStorage.removeItem('tokenExpiresAt')
-        navigate('/Login')
+        showFeedback('Sua sessão expirou. Entre novamente para continuar.', {
+          title: 'Sessão expirada',
+          tone: 'error',
+          onOk: () => navigate('/Login')
+        })
         return
       }
       const data = await response.json()
@@ -50,6 +60,7 @@ function ConsFuncoes() {
       if (requestError.name !== 'AbortError') {
         setError(requestError.message)
         setFunctions([])
+        showFeedback(requestError.message, { title: 'Não foi possível consultar funções', tone: 'error' })
       }
     } finally {
       if (!controller.signal.aborted) setLoading(false)
@@ -93,9 +104,7 @@ function ConsFuncoes() {
         <div className="cons-funcoes-list" aria-live="polite">
           {loading ? (
             <p className="cons-funcoes-empty">Consultando funções...</p>
-          ) : error ? (
-            <p className="cons-funcoes-empty" role="alert">{error}</p>
-          ) : functions.length ? (
+          ) : error ? null : functions.length ? (
             functions.map((item) => (
               <button
                 className="cons-funcoes-row"

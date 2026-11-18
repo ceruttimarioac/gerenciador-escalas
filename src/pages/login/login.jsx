@@ -1,19 +1,24 @@
 import React, { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { APIGERENCIADOR } from '../../config-web'
+import { useFeedback } from '../../components/feedback-context.js'
 import '../autenticacao.css'
 
 function Login() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState(null)
   const navigate = useNavigate()
+  const { showFeedback } = useFeedback()
 
   async function controller(event) {
     event.preventDefault()
+    if (!event.currentTarget.checkValidity()) {
+      showFeedback('Informe um email válido e a senha.', { title: 'Dados incompletos', tone: 'error' })
+      return
+    }
+
     setLoading(true)
-    setError(null)
 
     try {
       // Envia a requisição de login para o servidor
@@ -69,9 +74,7 @@ function Login() {
         navigate('/Home')
       }
     } catch (err) {
-      setError(err.message)
-      console.log(err.message)
-      window.alert('Erro ao fazer login: ' + err.message)
+      showFeedback(err.message, { title: 'Não foi possível fazer login', tone: 'error' })
     } finally {
       setLoading(false)
     }
@@ -81,7 +84,7 @@ function Login() {
     <main className="login-page">
       <section className="login-panel" aria-labelledby="login-title">
         <h1 id="login-title">Entrar</h1>
-        <form className="login-form" onSubmit={controller}>
+        <form className="login-form" onSubmit={controller} noValidate>
           <label htmlFor="email">Email</label>
           <input
             id="email"

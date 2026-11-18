@@ -1,6 +1,7 @@
 import { useEffect, useEffectEvent, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { APIGERENCIADOR } from '../../config-web'
+import { useFeedback } from '../../components/feedback-context.js'
 import '../consultas.css'
 
 function ConsUsuarios() {
@@ -10,6 +11,7 @@ function ConsUsuarios() {
   const [erro, setErro] = useState('')
   const requestController = useRef(null)
   const navigate = useNavigate()
+  const { showFeedback } = useFeedback()
 
   async function consultarUsuarios(valor, inicial = false) {
     requestController.current?.abort()
@@ -19,8 +21,11 @@ function ConsUsuarios() {
     if (!token || !expiry || expiry <= Date.now()) {
       localStorage.removeItem('token')
       localStorage.removeItem('tokenExpiresAt')
-      navigate('/Login')
-      window.alert('Sessão expirada. Faça login novamente.')
+      showFeedback('Sua sessão expirou. Entre novamente para continuar.', {
+        title: 'Sessão expirada',
+        tone: 'error',
+        onOk: () => navigate('/Login')
+      })
       return
     }
 
@@ -43,7 +48,11 @@ function ConsUsuarios() {
       if (response.status === 401) {
         localStorage.removeItem('token')
         localStorage.removeItem('tokenExpiresAt')
-        navigate('/Login')
+        showFeedback('Sua sessão expirou. Entre novamente para continuar.', {
+          title: 'Sessão expirada',
+          tone: 'error',
+          onOk: () => navigate('/Login')
+        })
         return
       }
 
@@ -57,6 +66,7 @@ function ConsUsuarios() {
       if (error.name !== 'AbortError') {
         setErro(error.message)
         setUsuarios([])
+        showFeedback(error.message, { title: 'Não foi possível consultar colaboradores', tone: 'error' })
       }
     } finally {
       if (!controller.signal.aborted) {
@@ -102,9 +112,7 @@ function ConsUsuarios() {
         <div className="cons-usuarios-grid" aria-live="polite">
           {consultando ? (
             <p className="cons-usuarios-empty">Consultando colaboradores...</p>
-          ) : erro ? (
-            <p className="cons-usuarios-empty" role="alert">{erro}</p>
-          ) : usuarios.length > 0 ? (
+          ) : erro ? null : usuarios.length > 0 ? (
             usuarios.map((usuario) => (
               <button
                 className="cons-usuarios-row"

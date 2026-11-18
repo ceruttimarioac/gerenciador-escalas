@@ -2,6 +2,7 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import './index.css'
+import { FeedbackProvider } from './components/FeedbackDialog.jsx'
 
 import Login from './pages/login/login.jsx'
 import Home from './pages/home/home.jsx'
@@ -16,24 +17,26 @@ import Admin from './pages/admin/admin.jsx'
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
-    <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<Login />} />
-        <Route path="/login" element={<Login />} />
-        <Route path="/Home" element={<Home />} />
-        <Route path="/Admin" element={<Admin />} />
-        <Route path="/Registrar" element={<Register />} />
-        <Route path="/ConsEscalas" element={<ConsEscalas />} />
-        <Route path="/GerarEscalasIA" element={<GerarEscalasIA />} />
-        <Route path="/ConsUsuarios" element={<ConsUsuarios />} />
-        <Route path="/CadUsuarios/:userCod" element={<CadUsuarios />} />
-        <Route path="/CadUsuarios" element={<CadUsuarios />} />
-        <Route path="/CadFuncoes" element={<CadFuncoes />} />
-        <Route path="/CadFuncoes/:funcCod" element={<CadFuncoes />} />
-        <Route path="/ConsFuncoes" element={<ConsFuncoes />} />
-        <Route path="/Escalas" element={<ConsEscalas />} />
-        <Route path="/Usuarios" element={<ConsUsuarios />} />
-      </Routes>
-    </BrowserRouter>
+    <FeedbackProvider>
+      <BrowserRouter>
+        <Routes>
+          <Route path="/" element={<Login />} />
+          <Route path="/login" element={<Login />} />
+          <Route path="/Home" element={<Home />} />
+          <Route path="/Admin" element={<Admin />} />
+          <Route path="/Registrar" element={<Register />} />
+          <Route path="/ConsEscalas" element={<ConsEscalas />} />
+          <Route path="/GerarEscalasIA" element={<GerarEscalasIA />} />
+          <Route path="/ConsUsuarios" element={<ConsUsuarios />} />
+          <Route path="/CadUsuarios/:userCod" element={<CadUsuarios />} />
+          <Route path="/CadUsuarios" element={<CadUsuarios />} />
+          <Route path="/CadFuncoes" element={<CadFuncoes />} />
+          <Route path="/CadFuncoes/:funcCod" element={<CadFuncoes />} />
+          <Route path="/ConsFuncoes" element={<ConsFuncoes />} />
+          <Route path="/Escalas" element={<ConsEscalas />} />
+          <Route path="/Usuarios" element={<ConsUsuarios />} />
+        </Routes>
+      </BrowserRouter>
+    </FeedbackProvider>
   </StrictMode>,
 )
