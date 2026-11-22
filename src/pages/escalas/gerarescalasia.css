@@ -610,6 +610,27 @@
 .ia-plano-usuario-campo > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ia-plano-usuario-campo:focus-visible { outline: 2px solid #a56d12; outline-offset: 2px; }
 .ia-plano-usuario-campo:disabled { cursor: not-allowed; opacity: .6; }
+
+.ia-plano-usuario-campo[aria-invalid="true"] {
+  border-color: #a34a34;
+  background: #fff3f0;
+}
+
+.ia-plano-conflito {
+  display: block;
+  margin-top: 4px;
+  color: #8d3422;
+  font-size: 0.85rem;
+}
+
+.ia-conflitos-mensagem {
+  white-space: pre-line;
+}
+
+.feedback-dialog:has(.ia-conflitos-mensagem) {
+  max-height: calc(100dvh - 2rem);
+  overflow-y: auto;
+}
 .ia-plano-opcoes { position: absolute; z-index: 20; top: calc(100% + 4px); left: 0; width: max(220px, 100%); max-width: min(340px, 90vw); max-height: 260px; overflow-y: auto; background: #fff; box-shadow: 0 8px 20px #0002; }
 @media (max-width: 650px) { .ia-plano { padding: 12px; } .ia-plano-cabecalho, .ia-plano-linha { grid-template-columns: minmax(85px, 1fr) minmax(120px, 1.3fr); gap: 8px; } .ia-plano-cabecalho > span { display: none; } .ia-plano-linha > .cad-escalas-remove { grid-column: 2; } .ia-plano-topo { align-items: flex-start; } }
 .ia-acoes-rodape {

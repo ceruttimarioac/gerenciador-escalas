@@ -4,6 +4,8 @@ import { APIGERENCIADOR } from '../../config-web'
 import { useFeedback } from '../../components/feedback-context.js'
 import './gerarescalasia.css'
 
+const nomePeriodo = { M: 'Manhã', T: 'Tarde', N: 'Noite' }
+
 function GerarEscalasIA() {
     const navigate = useNavigate()
     const location = useLocation()
@@ -34,6 +36,7 @@ function GerarEscalasIA() {
     const salvando = gravando || excluindo
     const [salvas, setSalvas] = useState([])
     const [resultadoIncerto, setResultadoIncerto] = useState(false)
+    const [conflitosPorEscala, setConflitosPorEscala] = useState({})
 
 
     useEffect(() => {
@@ -606,6 +609,38 @@ function GerarEscalasIA() {
         }
     }
 
+    function apresentarConflitos(escala, resultado, quantidadeSalva = 0) {
+        const { data, periodo, conflitos, local = false } = resultado
+        setConflitosPorEscala((anteriores) => ({
+            ...anteriores,
+            [escala.id]: { data, periodo, colaboradores: conflitos, local }
+        }))
+
+        const dataFormatada = data.split('-').reverse().join('/')
+        const detalhes = conflitos.map((conflito) => [
+            `Colaborador em conflito: ${conflito.user_nome} — ${conflito.funcao_atribuida}`,
+            local
+                ? 'Motivo: Este colaborador foi selecionado mais de uma vez nesta escala.'
+                : 'Motivo: Este colaborador já possui uma escala cadastrada nesta data e período.',
+            ...(conflito.escalas_existentes ?? []).map(({ esc_cod, funcao }) =>
+                `Escala existente: ${esc_cod}${funcao ? ` — ${funcao}` : ''}`
+            )
+        ].join('\n'))
+        const mensagem = [
+            'Não foi possível salvar a escala.',
+            `Data: ${dataFormatada}\nPeríodo: ${nomePeriodo[periodo]}`,
+            ...detalhes
+        ]
+        if (quantidadeSalva > 0) {
+            mensagem.push(`${quantidadeSalva} escala(s) já foram salvas e não serão enviadas novamente.`)
+        }
+
+        showFeedback(<span className="ia-conflitos-mensagem">{mensagem.join('\n\n')}</span>, {
+            title: 'Conflito de escala identificado',
+            tone: 'error'
+        })
+    }
+
     async function salvarEscalas() {
         if (salvando || gerandoIA || resultadoIncerto) return
 
@@ -630,11 +665,24 @@ function GerarEscalasIA() {
                 return
             }
 
-            const usuarios = escala.funcoes.map((funcao) => String(funcao.user_cod))
-            if (new Set(usuarios).size !== usuarios.length) {
-                showFeedback(`Há colaboradores repetidos na escala de ${escala.data} — ${escala.periodo}.`, {
-                    title: 'Colaborador repetido',
-                    tone: 'error'
+            const usuarios = escala.funcoes.map((funcao) => Number(funcao.user_cod))
+            const repetidos = new Set(usuarios.filter((codigo, indice) => usuarios.indexOf(codigo) !== indice))
+            if (repetidos.size) {
+                const porVinculo = new Map()
+                for (const funcao of escala.funcoes) {
+                    if (repetidos.has(Number(funcao.user_cod))) {
+                        porVinculo.set(Number(funcao.cod_user_func), {
+                            user_cod: funcao.user_cod,
+                            user_nome: funcao.user_nome,
+                            funcao_atribuida: funcao.func_desc
+                        })
+                    }
+                }
+                apresentarConflitos(escala, {
+                    data: escala.data,
+                    periodo: escala.periodo,
+                    conflitos: [...porVinculo.values()],
+                    local: true
                 })
                 return
             }
@@ -707,6 +755,10 @@ function GerarEscalasIA() {
                 if (response.status === 401) {
                     throw new Error('Sua sessão expirou. Entre novamente antes de continuar.')
                 }
+                if (response.status === 409 && resultado.code === 'CONFLITO_ESCALA') {
+                    apresentarConflitos(escala, resultado, quantidadeSalva)
+                    return
+                }
                 if (!response.ok || !resultado.success) {
                     throw new Error(resultado.message || 'Não foi possível atualizar a escala.')
                 }
@@ -760,6 +812,10 @@ function GerarEscalasIA() {
                     throw new Error('Sua sessão expirou. Entre novamente antes de continuar.')
                 }
 
+                if (response.status === 409 && resultado.code === 'CONFLITO_ESCALA') {
+                    apresentarConflitos(escala, resultado, quantidadeSalva)
+                    return
+                }
                 if (!response.ok || !resultado.success) {
                     throw new Error(
                         `Escala ${escala.data} — ${escala.periodo}: ` +
@@ -785,12 +841,6 @@ function GerarEscalasIA() {
         } finally {
             setSalvando(false)
         }
-    }
-
-    const nomePeriodo = {
-        M: 'Manhã',
-        T: 'Tarde',
-        N: 'Noite'
     }
 
     return (
@@ -963,51 +1013,72 @@ function GerarEscalasIA() {
                         <div className="ia-plano-cabecalho">
                             <strong>Função</strong><strong>Usuário</strong><span />
                         </div>
-                        {escala.funcoes.map((funcao) => (
-                            <div className="ia-plano-linha" key={funcao.id}>
-                                <span className="ia-plano-funcao">{funcao.func_desc}</span>
-                                <div className="ia-plano-usuario">
-                                    <button type="button" className="ia-plano-usuario-campo"
-                                        aria-expanded={selecaoAberta === funcao.id}
-                                        onClick={() => abrirSelecao(escala, funcao)}
-                                        disabled={gerandoIA || salvando || salvas.includes(escala.id)}>
-                                        <span>{funcao.user_nome || 'Selecionar usuário'}</span>
-                                        <span aria-hidden="true">⌄</span>
-                                    </button>
-                                    {selecaoAberta === funcao.id && (
-                                        <div className="cad-escalas-user-panel ia-plano-opcoes">
-                                            <h4>Colaboradores disponíveis</h4>
-                                            {funcao.user_cod != null && (
-                                                <button type="button" className="cad-escalas-user-option"
-                                                    onClick={() => limparColaborador(escala.id, funcao.id)}
-                                                    disabled={gerandoIA || salvando}>
-                                                    Deixar em branco para a IA
-                                                </button>
-                                            )}
-                                            {carregandoUsuarios ? (
-                                                <p>Carregando colaboradores...</p>
-                                            ) : erroUsuarios ? null : (
-                                                usuariosDisponiveis.length === 0 ? (
-                                                    <p>Nenhum colaborador disponível.</p>
-                                                ) : usuariosDisponiveis.map((usuario) => (
-                                                    <button key={usuario.cod_user_func} type="button"
-                                                        className="cad-escalas-user-option"
-                                                        onClick={() => selecionarColaborador(escala.id, funcao.id, usuario)}
+                        {escala.funcoes.map((funcao) => {
+                            const conflitos = conflitosPorEscala[escala.id]
+                            const codigoUsuario = Number(funcao.user_cod)
+                            const temConflito = !salvas.includes(escala.id) &&
+                                conflitos?.data === escala.data && conflitos.periodo === escala.periodo &&
+                                (conflitos.local
+                                    ? codigoUsuario > 0 && escala.funcoes.some((item) =>
+                                        item.id !== funcao.id && Number(item.user_cod) === codigoUsuario)
+                                    : conflitos.colaboradores.some((item) => Number(item.user_cod) === codigoUsuario))
+                            const avisoId = `conflito-${funcao.id}`
+
+                            return (
+                                <div className="ia-plano-linha" key={funcao.id}>
+                                    <span className="ia-plano-funcao">{funcao.func_desc}</span>
+                                    <div className="ia-plano-usuario">
+                                        <button type="button" className="ia-plano-usuario-campo"
+                                            aria-invalid={temConflito || undefined}
+                                            aria-describedby={temConflito ? avisoId : undefined}
+                                            aria-expanded={selecaoAberta === funcao.id}
+                                            onClick={() => abrirSelecao(escala, funcao)}
+                                            disabled={gerandoIA || salvando || salvas.includes(escala.id)}>
+                                            <span>{funcao.user_nome || 'Selecionar usuário'}</span>
+                                            <span aria-hidden="true">⌄</span>
+                                        </button>
+                                        {temConflito && (
+                                            <span id={avisoId} className="ia-plano-conflito">
+                                            {conflitos.local
+                                                ? 'Colaborador repetido nesta escala'
+                                                : 'Colaborador já escalado neste período'}
+                                            </span>
+                                        )}
+                                        {selecaoAberta === funcao.id && (
+                                            <div className="cad-escalas-user-panel ia-plano-opcoes">
+                                                <h4>Colaboradores disponíveis</h4>
+                                                {funcao.user_cod != null && (
+                                                    <button type="button" className="cad-escalas-user-option"
+                                                        onClick={() => limparColaborador(escala.id, funcao.id)}
                                                         disabled={gerandoIA || salvando}>
-                                                        {usuario.user_nome}
+                                                        Deixar em branco para a IA
                                                     </button>
-                                                ))
-                                            )}
-                                        </div>
-                                    )}
+                                                )}
+                                                {carregandoUsuarios ? (
+                                                    <p>Carregando colaboradores...</p>
+                                                ) : erroUsuarios ? null : (
+                                                    usuariosDisponiveis.length === 0 ? (
+                                                        <p>Nenhum colaborador disponível.</p>
+                                                    ) : usuariosDisponiveis.map((usuario) => (
+                                                        <button key={usuario.cod_user_func} type="button"
+                                                            className="cad-escalas-user-option"
+                                                            onClick={() => selecionarColaborador(escala.id, funcao.id, usuario)}
+                                                            disabled={gerandoIA || salvando}>
+                                                            {usuario.user_nome}
+                                                        </button>
+                                                    ))
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
+                                    <button type="button" className="cad-escalas-remove"
+                                        onClick={() => removerFuncaoDaEscala(escala.id, funcao.id)}
+                                        disabled={gerandoIA || salvando || salvas.includes(escala.id)}>
+                                        Excluir função
+                                    </button>
                                 </div>
-                                <button type="button" className="cad-escalas-remove"
-                                    onClick={() => removerFuncaoDaEscala(escala.id, funcao.id)}
-                                    disabled={gerandoIA || salvando || salvas.includes(escala.id)}>
-                                    Excluir função
-                                </button>
-                            </div>
-                        ))}
+                            )
+                        })}
                     </div>
                 ))}
             </section>

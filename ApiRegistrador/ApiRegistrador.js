@@ -603,6 +603,35 @@ app.get('/consultarconflitosescala', async (request, reply) => {
   }
 })
 
+async function consultarConflitosDeGravacao(client, empId, data, periodo, codigos, escCod = null) {
+  const { rows } = await client.query(
+    `SELECT atribuido.COD_USER_FUNC, atribuido.USER_COD, U.USER_NOME,
+            COALESCE(F.FUNC_DESC, atribuido.FUNC_COD::text) AS FUNCAO_ATRIBUIDA,
+            json_agg(
+              json_build_object('esc_cod', E.ESC_COD, 'funcao', anterior_funcao.FUNC_DESC)
+              ORDER BY E.ESC_COD, EI.ID
+            ) AS ESCALAS_EXISTENTES
+     FROM ESCALA E
+     JOIN ESC_ITEM EI ON EI.ESC_COD = E.ESC_COD
+     JOIN FUNC_USER anterior
+       ON anterior.COD_USER_FUNC = EI.ESC_USER_FUNC AND anterior.EMP_ID = E.EMP_ID
+     JOIN FUNC_USER atribuido
+       ON atribuido.EMP_ID = E.EMP_ID AND atribuido.USER_COD = anterior.USER_COD
+     JOIN USUARIO U ON U.EMP_ID = E.EMP_ID AND U.USER_COD = atribuido.USER_COD
+     LEFT JOIN FUNCAO F ON F.EMP_ID = E.EMP_ID AND F.FUNC_COD = atribuido.FUNC_COD
+     LEFT JOIN FUNCAO anterior_funcao
+       ON anterior_funcao.EMP_ID = E.EMP_ID AND anterior_funcao.FUNC_COD = anterior.FUNC_COD
+     WHERE E.EMP_ID = $1 AND E.ESC_DATA = $2::date AND E.ESC_PERIODO = $3
+       AND atribuido.COD_USER_FUNC = ANY($4::integer[])
+       AND ($5::integer IS NULL OR E.ESC_COD <> $5)
+     GROUP BY atribuido.COD_USER_FUNC, atribuido.USER_COD, U.USER_NOME, F.FUNC_DESC, atribuido.FUNC_COD
+     ORDER BY U.USER_NOME, atribuido.COD_USER_FUNC`,
+    [empId, data, periodo, codigos, escCod]
+  )
+
+  return rows.map((conflito) => ({ ...conflito, data, periodo }))
+}
+
 app.post('/inseriescalas', async (request, reply) => {
   const { userId, data, periodo, itens } = request.body || {}
 
@@ -714,26 +743,18 @@ app.post('/inseriescalas', async (request, reply) => {
       }
     }
 
-    const { rows: conflitos } = await client.query(
-      `SELECT DISTINCT FU.USER_COD
-       FROM ESCALA E
-       INNER JOIN ESC_ITEM EI ON EI.ESC_COD = E.ESC_COD
-       INNER JOIN FUNC_USER FU
-         ON FU.COD_USER_FUNC = EI.ESC_USER_FUNC
-       WHERE E.EMP_ID = $1
-         AND E.ESC_DATA = $2::date
-         AND E.ESC_PERIODO = $3
-         AND FU.USER_COD = ANY($4::integer[])
-         AND FU.EMP_ID = E.EMP_ID`,
-      [empId, dataTexto, periodo, usuarios]
-    )
+    const conflitos = await consultarConflitosDeGravacao(client, empId, dataTexto, periodo, codigos)
 
     if (conflitos.length) {
       await client.query('ROLLBACK')
       reply.code(409)
       return {
         success: false,
-        message: 'Um ou mais colaboradores já estão escalados nesta data e período.'
+        code: 'CONFLITO_ESCALA',
+        data: dataTexto,
+        periodo,
+        message: 'Um ou mais colaboradores já estão escalados nesta data e período.',
+        conflitos
       }
     }
 
@@ -1101,30 +1122,18 @@ app.put('/atualizaescalas/:escCod', async (request, reply) => {
       }
     }
 
-    // Impede conflito com outras escalas.
-    // A própria escala que está sendo atualizada é ignorada.
-    const { rows: conflitos } = await client.query(
-      `SELECT DISTINCT FU.USER_COD
-       FROM ESCALA E
-       INNER JOIN ESC_ITEM EI
-         ON EI.ESC_COD = E.ESC_COD
-       INNER JOIN FUNC_USER FU
-         ON FU.COD_USER_FUNC = EI.ESC_USER_FUNC
-       WHERE E.EMP_ID = $1
-         AND E.ESC_DATA = $2::date
-         AND E.ESC_PERIODO = $3
-         AND E.ESC_COD <> $4
-         AND FU.USER_COD = ANY($5::integer[])
-         AND FU.EMP_ID = E.EMP_ID`,
-      [empId, dataTexto, periodo, escCod, usuarios]
-    )
+    const conflitos = await consultarConflitosDeGravacao(client, empId, dataTexto, periodo, codigos, escCod)
 
     if (conflitos.length) {
       await client.query('ROLLBACK')
       reply.code(409)
       return {
         success: false,
-        message: 'Um ou mais colaboradores já estão escalados nesta data e período.'
+        code: 'CONFLITO_ESCALA',
+        data: dataTexto,
+        periodo,
+        message: 'Um ou mais colaboradores já estão escalados nesta data e período.',
+        conflitos
       }
     }
 
