@@ -29,7 +29,9 @@ function GerarEscalasIA() {
     const [carregandoUsuarios, setCarregandoUsuarios] = useState(false)
     const [erroUsuarios, setErroUsuarios] = useState('')
     const [gerandoIA, setGerandoIA] = useState(false)
-    const [salvando, setSalvando] = useState(false)
+    const [gravando, setSalvando] = useState(false)
+    const [excluindo, setExcluindo] = useState(false)
+    const salvando = gravando || excluindo
     const [salvas, setSalvas] = useState([])
     const [resultadoIncerto, setResultadoIncerto] = useState(false)
 
@@ -397,6 +399,66 @@ function GerarEscalasIA() {
         )
     }
 
+    async function excluirEscalaCadastrada() {
+        if (!editandoEscala || carregandoEscala || gerandoIA || salvando) return
+
+        const confirmacao = await confirmFeedback(
+            `Excluir a escala ${codigoEscalaSelecionada} e todos os seus itens? Essa ação não pode ser desfeita.`,
+            { title: 'Confirmar exclusão', confirmLabel: 'Excluir escala' }
+        )
+        if (!confirmacao) return
+
+        const token = localStorage.getItem('token')
+        const informarSessaoExpirada = () => {
+            localStorage.removeItem('token')
+            localStorage.removeItem('tokenExpiresAt')
+            showFeedback('Sua sessão expirou. Entre novamente para continuar.', {
+                title: 'Sessão expirada',
+                tone: 'error',
+                onOk: () => navigate('/Login')
+            })
+        }
+        if (!token) {
+            informarSessaoExpirada()
+            return
+        }
+
+        const mensagemFalha = 'Não foi possível confirmar a exclusão. Consulte as escalas cadastradas.'
+        setExcluindo(true)
+        try {
+            const response = await fetch(
+                `http://${APIGERENCIADOR}/escalas/${codigoEscalaSelecionada}`,
+                { method: 'DELETE', headers: { Authorization: 'Bearer ' + token } }
+            )
+            if (response.status === 401) {
+                informarSessaoExpirada()
+                return
+            }
+
+            const resultado = await response.json().catch(() => null)
+            if (!response.ok || !resultado?.success) {
+                showFeedback(resultado?.message || mensagemFalha, {
+                    title: 'Não foi possível excluir a escala',
+                    tone: 'error'
+                })
+                return
+            }
+
+            showFeedback(resultado.message || 'Escala excluída com sucesso.', {
+                title: 'Escala excluída',
+                tone: 'success',
+                onOk: () => navigate('/ConsEscalas', { replace: true })
+            })
+        } catch {
+            showFeedback(mensagemFalha, {
+                title: 'Não foi possível excluir a escala',
+                tone: 'error'
+            })
+        } finally {
+            setExcluindo(false)
+        }
+    }
+
     function removerFuncaoDaEscala(escalaId, funcaoId) {
         if (gerandoIA || salvando || salvas.includes(escalaId)) return
         setSelecaoAberta(null)
@@ -752,7 +814,7 @@ function GerarEscalasIA() {
                 >
                     {gerandoIA
                         ? 'Gerando informações, aguarde...'
-                        : 'Salvando escalas, aguarde...'}
+                        : excluindo ? 'Excluindo escala, aguarde...' : 'Salvando escalas, aguarde...'}
                 </div>
             )}
 
@@ -892,9 +954,10 @@ function GerarEscalasIA() {
                                 </span>
                             </div>
                             <button type="button" className="cad-escalas-remove"
-                                onClick={() => removerEscala(escala.id)}
-                                disabled={editandoEscala || gerandoIA || salvando || salvas.includes(escala.id)}>
-                                {editandoEscala ? 'Escala existente' : 'Excluir escala'}
+                                onClick={() => editandoEscala ? excluirEscalaCadastrada() : removerEscala(escala.id)}
+                                disabled={gerandoIA || salvando ||
+                                    (editandoEscala ? carregandoEscala : salvas.includes(escala.id))}>
+                                Excluir escala
                             </button>
                         </div>
                         <div className="ia-plano-cabecalho">

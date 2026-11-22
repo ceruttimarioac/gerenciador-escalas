@@ -1,5 +1,6 @@
 import fastify from 'fastify'
 import { Pool } from 'pg'
+import { obterUserIdfirebase } from '../ApiGerenciador/autenticacao-firebase.js'
 import { ADDRESS_API, PORT_API, IP_DB, PORT_DB, PASSWORD_DB, USER_DB, DATABASE_DB } from './config-apiregistrador.js'
 
 const app = fastify({ logger: false });
@@ -911,6 +912,60 @@ app.get('/consultarescala/:escCod', async (request, reply) => {
   }
 })
 
+
+app.delete('/escalas/:escCod', async (request, reply) => {
+  const authorization = request.headers.authorization || ''
+  const token = authorization.startsWith('Bearer ') ? authorization.slice('Bearer '.length) : ''
+  const userId = await obterUserIdfirebase(token)
+  if (!userId) {
+    reply.code(401)
+    return { success: false, message: 'Sessão do usuário expirada' }
+  }
+  const escCod = Number(request.params.escCod)
+
+  if (!Number.isSafeInteger(escCod) || escCod < 1) {
+    reply.code(400)
+    return { success: false, message: 'Informe um código de escala válido.' }
+  }
+
+  let client
+  try {
+    client = await pool.connect()
+    await client.query('BEGIN')
+
+    const { rows } = await client.query(
+      `SELECT E.ESC_COD, E.EMP_ID
+       FROM ESCALA E
+       WHERE E.ESC_COD = $1
+         AND EXISTS (
+           SELECT 1 FROM USUARIO U
+           WHERE U.EMP_ID = E.EMP_ID AND U.USER_FIREBASE_UID = $2
+         )
+       FOR UPDATE`,
+      [escCod, userId]
+    )
+
+    if (!rows.length) {
+      await client.query('ROLLBACK')
+      reply.code(404)
+      return { success: false, message: 'Escala não encontrada nesta empresa.' }
+    }
+
+    await client.query('DELETE FROM ESC_ITEM WHERE ESC_COD = $1', [escCod])
+    await client.query(
+      'DELETE FROM ESCALA WHERE ESC_COD = $1 AND EMP_ID = $2',
+      [escCod, rows[0].emp_id]
+    )
+    await client.query('COMMIT')
+    return { success: true, message: 'Escala excluída com sucesso.' }
+  } catch {
+    await client?.query('ROLLBACK').catch(() => {})
+    reply.code(503)
+    return { success: false, message: 'Não foi possível confirmar a exclusão. Consulte as escalas cadastradas.' }
+  } finally {
+    client?.release()
+  }
+})
 
 app.put('/atualizaescalas/:escCod', async (request, reply) => {
   const escCod = Number(request.params.escCod)

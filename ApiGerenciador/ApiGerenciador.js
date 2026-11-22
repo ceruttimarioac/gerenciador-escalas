@@ -1,5 +1,6 @@
 import fastify from 'fastify'
 import cors from '@fastify/cors'
+import { obterUserIdfirebase } from './autenticacao-firebase.js'
 import { 
   ADDRESS_WEB, ADDRESS_API, PORT_API, 
   ADDRESS_APIREGISTRADOR, ADDRESS_APIIA, 
@@ -15,64 +16,6 @@ const API_IA_URL = process.env.API_IA_URL || `http://${ADDRESS_APIIA}`;
 
 // ------------------------------------------
 // funções
-
-
-// Consulta o Firebase usando o token e retorna o ID do usuário ou false.
-async function obterUserIdfirebase(token) {
-  // Se o token não foi informado, encerra a função.
-  if (!token) {
-    return false;
-  }
-
-  try {
-    // Endereço da API do Firebase que consulta o usuário pelo token.
-    const url = `https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${KEY_FIREBASE_API}`;
-
-    // Envia o token para o Firebase.
-    const resposta = await fetch(url, {
-      method: 'POST',
-
-      // Informa que o corpo da requisição está no formato JSON.
-      headers: {
-        'Content-Type': 'application/json'
-      },
-
-      // Converte o objeto com o token para uma string JSON.
-      body: JSON.stringify({
-        idToken: token
-      })
-    });
-
-    // Lê o conteúdo da resposta e converte para um objeto JavaScript.
-    const dados = await resposta.json();
-
-    if (!resposta.ok) {
-
-      // Não foi possível obter um usuário válido.
-      return false;
-    }
-
-    // Pega o primeiro usuário da lista.
-    // O ?. evita um erro caso a propriedade "users" não exista.
-    const usuario = dados.users?.[0];
-
-    // Se nenhum usuário foi retornado, encerra a função.
-    if (!usuario) {
-      return false;
-    }
-
-    // O campo localId contém o identificador do usuário no Firebase.
-    const userId = usuario.localId;
-
-    // Retorna o identificador ou false se ele estiver ausente ou vazio.
-    return userId || false;
-
-  } catch {
-    // Indica que não foi possível obter o identificador do usuário.
-    return false;
-  }
-}
-
 
 
 async function consultarRegistrador(path, options) {
@@ -98,7 +41,7 @@ async function obterUidAutenticado(request, reply) {
 
 await app.register(cors, {
   origin: ADDRESS_WEB,
-  methods: ['GET', 'HEAD', 'POST', 'PUT', 'OPTIONS']
+  methods: ['GET', 'HEAD', 'POST', 'PUT', 'DELETE', 'OPTIONS']
 })
 
 app.post('/login', async (request, reply) => {
@@ -417,23 +360,12 @@ app.post('/cadastrarusuario', async (request, reply) => {
 
 
 app.get('/consultausuario', async (request, reply) => {
-  
-  // Recebe o token do cabeçalho Authorization
-  const authorization = request.headers.authorization || '';
-  
-  // Remove o prefixo "Bearer " do token, se presente
-  const token = authorization.startsWith('Bearer ')
-    ? authorization.slice('Bearer '.length)
-    : '';
+  const userId = await obterUidAutenticado(request, reply);
+  if (!userId) {
+    return { success: false, message: 'Sessão do usuário expirada' };
+  }
 
-  // Se não houver token, retorna 401 Unauthorized
   try {
-    const userId = await obterUserId(token);
-    if (!userId) {
-      reply.code(401);
-      return { success: false, message: 'Sessão do usuario expirada' };
-    }
-
     // Adiciona o userId como parâmetro de consulta para a API registradora
     const query = new URLSearchParams({
       q: request.query.q || request.query.textopesquisado || '',
@@ -457,7 +389,7 @@ app.get('/consultausuario', async (request, reply) => {
     reply.code(503);
     return {
       success: false,
-      message: 'Não foi possível validar o token ou consultar a API registradora'
+      message: 'Não foi possível consultar a API registradora'
     };
   }
 });
@@ -671,6 +603,31 @@ app.get('/consultarescala/:escCod', async (request, reply) => {
   }
 })
 
+
+app.delete('/escalas/:escCod', async (request, reply) => {
+  const userId = await obterUidAutenticado(request, reply)
+  if (!userId) {
+    return { success: false, message: 'Sessão do usuário expirada' }
+  }
+
+  const escCod = Number(request.params.escCod)
+  if (!Number.isSafeInteger(escCod) || escCod < 1) {
+    reply.code(400)
+    return { success: false, message: 'Informe um código de escala válido.' }
+  }
+
+  try {
+    const { response, data } = await consultarRegistrador(
+      `/escalas/${escCod}`,
+      { method: 'DELETE', headers: { Authorization: request.headers.authorization } }
+    )
+    reply.code(response.status)
+    return data
+  } catch {
+    reply.code(503)
+    return { success: false, message: 'Não foi possível confirmar a exclusão. Consulte as escalas cadastradas.' }
+  }
+})
 
 app.put('/atualizaescalas/:escCod', async (request, reply) => {
   try {
