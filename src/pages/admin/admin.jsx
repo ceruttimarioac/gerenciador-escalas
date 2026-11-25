@@ -1,17 +1,14 @@
 import { useEffect, useState } from 'react'
-import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useOutletContext } from 'react-router-dom'
 import { APIGERENCIADOR } from '../../config-web'
 import { useFeedback } from '../../components/feedback-context.js'
+import { limparConfiguracao } from '../../components/sessao.js'
 import './admin.css'
 
 function Admin() {
-  const location = useLocation()
+  const { token: setupToken, expiracao, email: accountEmail } = useOutletContext()
   const navigate = useNavigate()
   const { showFeedback } = useFeedback()
-  const setupToken = location.state?.adminBootstrap ? location.state.token : ''
-  const expiresIn = Number(location.state?.expiresIn || 3600)
-  const accountEmail = location.state?.email || ''
-  const hasBootstrapAccess = Boolean(setupToken)
 
   const [companyName, setCompanyName] = useState('')
   const [companyDocument, setCompanyDocument] = useState('')
@@ -27,12 +24,6 @@ function Admin() {
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
-    if (!hasBootstrapAccess) navigate('/Login', { replace: true })
-  }, [hasBootstrapAccess, navigate])
-
-  useEffect(() => {
-    if (!hasBootstrapAccess) return
-
     let active = true
     async function loadCompanyContext() {
       try {
@@ -61,7 +52,7 @@ function Admin() {
     return () => {
       active = false
     }
-  }, [hasBootstrapAccess, setupToken, showFeedback])
+  }, [setupToken, showFeedback])
 
   async function submitInitialSetup(event) {
     event.preventDefault()
@@ -187,13 +178,12 @@ function Admin() {
 
   function goToHome() {
     localStorage.setItem('token', setupToken)
-    localStorage.setItem('tokenExpiresAt', String(Date.now() + expiresIn * 1000))
+    localStorage.setItem('tokenExpiresAt', String(expiracao))
     localStorage.removeItem('emp_id')
     localStorage.removeItem('user_cod')
+    limparConfiguracao()
     navigate('/Home', { replace: true })
   }
-
-  if (!hasBootstrapAccess) return null
 
   return (
     <main className="admin-page">

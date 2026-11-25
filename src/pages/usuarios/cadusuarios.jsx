@@ -2,6 +2,7 @@ import { useEffect, useEffectEvent, useState } from 'react'
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { APIGERENCIADOR } from '../../config-web'
 import { useFeedback } from '../../components/feedback-context.js'
+import { useExcluirCadastro } from '../../components/useExcluirCadastro.js'
 import CadFuncoes from '../funcoes/cadfuncoes.jsx'
 import './cadusuarios.css'
 
@@ -46,9 +47,18 @@ function CadUsuarios() {
   const [loadingFunctions, setLoadingFunctions] = useState(false)
   const [loadingUser, setLoadingUser] = useState(editing)
   const [saving, setSaving] = useState(false)
+  const [codigoCarregado, setCodigoCarregado] = useState(null)
   const [erroFuncoes, setErroFuncoes] = useState('')
   const navigate = useNavigate()
   const { showFeedback } = useFeedback()
+  const { excluir, excluindo } = useExcluirCadastro({
+    codigo: userCod,
+    caminho: 'consultausuario',
+    consulta: '/ConsUsuarios',
+    registro: 'o colaborador',
+    rotulo: 'Excluir colaborador',
+    detalhes: 'Os vínculos de função e os dias indisponíveis também serão removidos. '
+  })
 
   const carregarUsuario = useEffectEvent(async () => {
     const token = localStorage.getItem('token')
@@ -75,6 +85,7 @@ function CadUsuarios() {
       }
       setNome(data.usuario.user_nome)
       setCodigo(data.usuario.user_cod)
+      setCodigoCarregado(userCod)
       setIndisponibilidades(data.indisponibilidades || [])
       if (data.usuario.func_cod) {
         setFuncao({ func_cod: data.usuario.func_cod, func_desc: data.usuario.func_desc || '' })
@@ -116,6 +127,7 @@ function CadUsuarios() {
 
   async function salvarUsuario(event) {
     event.preventDefault()
+    if (excluindo) return
     if (!event.currentTarget.checkValidity() || !nome.trim()) {
       showFeedback('Preencha os campos obrigatórios com valores válidos.', {
         title: 'Dados incompletos',
@@ -259,7 +271,12 @@ function CadUsuarios() {
           </div>
           <div className="cad-usuarios-form-actions">
             <Link className="cad-usuarios-action cad-usuarios-action--back" to="/ConsUsuarios">Voltar</Link>
-            <button className="cad-usuarios-action cad-usuarios-action--confirm" type="submit" disabled={saving || loadingUser}>
+            {editing && codigoCarregado === userCod && (
+              <button className="cad-usuarios-action cad-usuarios-action--delete" type="button" onClick={excluir} disabled={saving || loadingUser || excluindo}>
+                Excluir colaborador
+              </button>
+            )}
+            <button className="cad-usuarios-action cad-usuarios-action--confirm" type="submit" disabled={saving || loadingUser || excluindo}>
               {saving ? (codigo ? 'Confirmando...' : 'Incluindo...') : (codigo ? 'Confirmar' : 'Incluir')}
             </button>
           </div>

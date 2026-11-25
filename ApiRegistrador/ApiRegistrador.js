@@ -221,6 +221,97 @@ app.put('/atualizarfuncao/:funcCod', async (request, reply) => {
   }
 })
 
+async function excluirCadastro(request, reply, colaborador) {
+  const authorization = request.headers.authorization || ''
+  const token = authorization.startsWith('Bearer ') ? authorization.slice('Bearer '.length) : ''
+  const userId = await obterUserIdfirebase(token)
+  if (!userId) {
+    reply.code(401)
+    return { success: false, message: 'Sessão do usuário expirada' }
+  }
+
+  const codigo = Number(request.params.codigo)
+  if (!Number.isInteger(codigo) || codigo < 1 || codigo > 2147483647) {
+    reply.code(400)
+    return { success: false, message: 'Informe um código válido.' }
+  }
+
+  const tabela = colaborador ? 'USUARIO' : 'FUNCAO'
+  const coluna = colaborador ? 'USER_COD' : 'FUNC_COD'
+  const mensagemEscala = colaborador
+    ? 'O colaborador está vinculado a uma escala existente.'
+    : 'A função está vinculada a uma escala existente.'
+  let client
+  try {
+    client = await pool.connect()
+    await client.query('BEGIN')
+    const { rows } = await client.query(
+      `SELECT R.EMP_ID FROM ${tabela} R
+       WHERE R.${coluna} = $1
+         AND EXISTS (
+           SELECT 1 FROM USUARIO U
+           WHERE U.EMP_ID = R.EMP_ID AND U.USER_FIREBASE_UID = $2
+         )
+       FOR UPDATE`,
+      [codigo, userId]
+    )
+    if (!rows.length) {
+      await client.query('ROLLBACK')
+      reply.code(404)
+      return {
+        success: false,
+        message: colaborador ? 'Colaborador não encontrado nesta empresa.' : 'Função não encontrada nesta empresa.'
+      }
+    }
+
+    const dados = [codigo, rows[0].emp_id]
+    const { rowCount: escalas } = await client.query(
+      `SELECT 1 FROM ESC_ITEM I
+       JOIN FUNC_USER V ON V.COD_USER_FUNC = I.ESC_USER_FUNC
+       WHERE V.${coluna} = $1
+       LIMIT 1`,
+      [codigo]
+    )
+    if (escalas) {
+      await client.query('ROLLBACK')
+      reply.code(409)
+      return { success: false, message: mensagemEscala }
+    }
+
+    if (colaborador) {
+      await client.query('DELETE FROM FUNC_USER WHERE USER_COD = $1 AND EMP_ID = $2', dados)
+      await client.query('DELETE FROM INDISPO_USER WHERE USER_COD = $1 AND EMP_ID = $2', dados)
+    }
+    await client.query(`DELETE FROM ${tabela} WHERE ${coluna} = $1 AND EMP_ID = $2`, dados)
+    await client.query('COMMIT')
+    return {
+      success: true,
+      message: colaborador ? 'Colaborador excluído com sucesso.' : 'Função excluída com sucesso.'
+    }
+  } catch (error) {
+    await client?.query('ROLLBACK').catch(() => {})
+    if (error.code === '23503') {
+      reply.code(409)
+      const mensagens = {
+        fk_esc_item_func_user: mensagemEscala,
+        fk_func_user_funcao: 'A função está vinculada a colaboradores. Altere a função desses colaboradores antes de excluí-la.',
+        fk_log_usuario: 'O colaborador possui registros no histórico de auditoria e não pode ser excluído.'
+      }
+      return {
+        success: false,
+        message: mensagens[error.constraint] || 'O cadastro possui vínculos que impedem a exclusão.'
+      }
+    }
+    reply.code(503)
+    return { success: false, message: 'Não foi possível confirmar a exclusão. Verifique o cadastro na consulta.' }
+  } finally {
+    client?.release()
+  }
+}
+
+app.delete('/consultausuario/:codigo', (request, reply) => excluirCadastro(request, reply, true))
+app.delete('/consultafuncoes/:codigo', (request, reply) => excluirCadastro(request, reply, false))
+
 app.post('/cadastrarusuario', async (request, reply) => {
   const { userId, firebaseUid, userNome, funcCod } = request.body || {}
   const normalizedUserName = String(userNome || '').trim()

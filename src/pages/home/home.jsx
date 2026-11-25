@@ -1,10 +1,17 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
+import { encerrarSessao } from '../../components/sessao.js'
 import { APIGERENCIADOR } from '../../config-web'
 import './home.css'
 
 function Home() {
   const [companyName, setCompanyName] = useState('Nome da empresa')
+  const navigate = useNavigate()
+
+  function sair() {
+    encerrarSessao()
+    navigate('/Login', { replace: true })
+  }
 
   useEffect(() => {
     const token = localStorage.getItem('token')
@@ -87,6 +94,12 @@ function Home() {
           </Link>
         </div>
       </nav>
+      <button className="home-sair" type="button" onClick={sair}>
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <path d="M10 17l5-5-5-5m5 5H3m10-8h6a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-6" />
+        </svg>
+        Sair
+      </button>
     </main>
   )
 }

@@ -1,13 +1,49 @@
 .home-page {
 	display: grid;
-	grid-template-rows: auto minmax(12rem, 1fr) auto;
-	gap: 1.5rem;
+	align-content: center;
+	gap: clamp(0.75rem, 2vh, 1.25rem);
 	width: min(100%, 64rem);
 	min-height: 100vh;
+	min-height: 100dvh;
 	margin: 0 auto;
-	padding: 2rem;
+	padding: clamp(1rem, 2.5vh, 1.5rem) 2rem;
 	box-sizing: border-box;
 	font-family: 'Aptos', 'Segoe UI Variable', 'Segoe UI', sans-serif;
+}
+
+.home-sair {
+	justify-self: end;
+	display: inline-flex;
+	align-items: center;
+	gap: 0.4rem;
+	padding: 0.4rem 0.7rem;
+	border: 1px solid #d8c18a;
+	border-radius: 6px;
+	background: #fffdf8;
+	color: #5a3a05;
+	font: inherit;
+	font-size: 0.875rem;
+	font-weight: 700;
+	cursor: pointer;
+}
+
+.home-sair:hover {
+	background: #d8c18a;
+}
+
+.home-sair:focus-visible {
+	outline: 2px solid #a87518;
+	outline-offset: 3px;
+}
+
+.home-sair svg {
+	width: 1rem;
+	height: 1rem;
+	fill: none;
+	stroke: currentColor;
+	stroke-width: 2;
+	stroke-linecap: round;
+	stroke-linejoin: round;
 }
 
 .home-brand {
@@ -68,7 +104,7 @@
 }
 
 .home-dashboard {
-	min-height: 12rem;
+	min-height: clamp(8rem, 23vh, 12rem);
 	border: 1px solid rgba(216, 193, 138, 0.75);
 	border-radius: 8px;
 	background: rgba(255, 253, 248, 0.36);
@@ -180,7 +216,6 @@
 
 @media (max-width: 520px) {
 	.home-page {
-		grid-template-rows: auto minmax(10rem, 1fr) auto;
 		gap: 1.25rem;
 		padding: 1rem;
 	}

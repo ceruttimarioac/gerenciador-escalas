@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { APIGERENCIADOR } from '../../config-web'
 import { useFeedback } from '../../components/feedback-context.js'
+import { encerrarSessao, limparConfiguracao, salvarConfiguracao } from '../../components/sessao.js'
 import '../autenticacao.css'
 
 function Login() {
@@ -36,21 +37,13 @@ function Login() {
       if (!data.success) {
         // verifica se o usuário não está registrado e se há um token na resposta
         if (data.code === 'USER_NOT_REGISTERED' && data.token) {
-          // remove o token de login do localStorage, caso exista
-          localStorage.removeItem('emp_id')
-          localStorage.removeItem('user_cod')
-          
-          // redireciona para a página de registro com o token e email como estado
-          // OBSERVAÇÃO: Esse redirecionamento existe apenas para demonstração, 
-          // pois a liberação é realizada pelo por administrativo separado
-          navigate('/Admin', {
-            state: {
-              adminBootstrap: true,
-              token: data.token,
-              expiresIn: data.expiresIn,
-              email: data.email || email
-            }
+          encerrarSessao()
+          salvarConfiguracao({
+            token: data.token,
+            expiresIn: data.expiresIn,
+            email: data.email || email
           })
+          navigate('/Admin')
           return
         }
         throw new Error(data.message || 'Erro ao fazer login')
@@ -71,6 +64,7 @@ function Login() {
         )
         localStorage.removeItem('emp_id')
         localStorage.removeItem('user_cod')
+        limparConfiguracao()
         navigate('/Home')
       }
     } catch (err) {

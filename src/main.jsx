@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import './index.css'
 import { FeedbackProvider } from './components/FeedbackDialog.jsx'
+import LayoutAutenticado from './components/LayoutAutenticado.jsx'
 
 import Login from './pages/login/login.jsx'
 import Home from './pages/home/home.jsx'
@@ -22,19 +23,23 @@ createRoot(document.getElementById('root')).render(
         <Routes>
           <Route path="/" element={<Login />} />
           <Route path="/login" element={<Login />} />
-          <Route path="/Home" element={<Home />} />
-          <Route path="/Admin" element={<Admin />} />
           <Route path="/Registrar" element={<Register />} />
-          <Route path="/ConsEscalas" element={<ConsEscalas />} />
-          <Route path="/GerarEscalasIA" element={<GerarEscalasIA />} />
-          <Route path="/ConsUsuarios" element={<ConsUsuarios />} />
-          <Route path="/CadUsuarios/:userCod" element={<CadUsuarios />} />
-          <Route path="/CadUsuarios" element={<CadUsuarios />} />
-          <Route path="/CadFuncoes" element={<CadFuncoes />} />
-          <Route path="/CadFuncoes/:funcCod" element={<CadFuncoes />} />
-          <Route path="/ConsFuncoes" element={<ConsFuncoes />} />
-          <Route path="/Escalas" element={<ConsEscalas />} />
-          <Route path="/Usuarios" element={<ConsUsuarios />} />
+          <Route element={<LayoutAutenticado configuracao />}>
+            <Route path="/Admin" element={<Admin />} />
+          </Route>
+          <Route element={<LayoutAutenticado />}>
+            <Route path="/Home" element={<Home />} />
+            <Route path="/ConsEscalas" element={<ConsEscalas />} />
+            <Route path="/GerarEscalasIA" element={<GerarEscalasIA />} />
+            <Route path="/ConsUsuarios" element={<ConsUsuarios />} />
+            <Route path="/CadUsuarios/:userCod" element={<CadUsuarios />} />
+            <Route path="/CadUsuarios" element={<CadUsuarios />} />
+            <Route path="/CadFuncoes" element={<CadFuncoes />} />
+            <Route path="/CadFuncoes/:funcCod" element={<CadFuncoes />} />
+            <Route path="/ConsFuncoes" element={<ConsFuncoes />} />
+            <Route path="/Escalas" element={<ConsEscalas />} />
+            <Route path="/Usuarios" element={<ConsUsuarios />} />
+          </Route>
         </Routes>
       </BrowserRouter>
     </FeedbackProvider>

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { APIGERENCIADOR } from '../../config-web'
 import { useFeedback } from '../../components/feedback-context.js'
+import { useExcluirCadastro } from '../../components/useExcluirCadastro.js'
 import './cadfuncoes.css'
 
 function CadFuncoes({ embedded = false, onCreated, onCancel }) {
@@ -12,8 +13,16 @@ function CadFuncoes({ embedded = false, onCreated, onCancel }) {
   const [descricao, setDescricao] = useState(selectedFunction?.func_desc || '')
   const [loading, setLoading] = useState(editing)
   const [saving, setSaving] = useState(false)
+  const [codigoCarregado, setCodigoCarregado] = useState(null)
   const navigate = useNavigate()
   const { showFeedback } = useFeedback()
+  const { excluir, excluindo } = useExcluirCadastro({
+    codigo: funcCod,
+    caminho: 'consultafuncoes',
+    consulta: '/ConsFuncoes',
+    registro: 'a função',
+    rotulo: 'Excluir função'
+  })
 
   useEffect(() => {
     if (!editing) return undefined
@@ -49,6 +58,7 @@ function CadFuncoes({ embedded = false, onCreated, onCancel }) {
           throw new Error(data.message || 'Não foi possível carregar a função')
         }
         setDescricao(data.funcao.func_desc)
+        setCodigoCarregado(funcCod)
       } catch (error) {
         if (error.name !== 'AbortError') {
           showFeedback(error.message, { title: 'Não foi possível carregar a função', tone: 'error' })
@@ -64,6 +74,7 @@ function CadFuncoes({ embedded = false, onCreated, onCancel }) {
 
   async function salvarFuncao(event) {
     event.preventDefault()
+    if (excluindo) return
     if (!event.currentTarget.checkValidity() || !descricao.trim()) {
       showFeedback('Informe a descrição da função.', { title: 'Dados incompletos', tone: 'error' })
       return
@@ -155,7 +166,12 @@ function CadFuncoes({ embedded = false, onCreated, onCancel }) {
             Voltar
           </Link>
         )}
-        <button className="cad-funcoes-action cad-funcoes-action--confirm" type="submit" disabled={saving || loading}>
+        {editing && codigoCarregado === funcCod && (
+          <button className="cad-funcoes-action cad-funcoes-action--delete" type="button" onClick={excluir} disabled={saving || loading || excluindo}>
+            Excluir função
+          </button>
+        )}
+        <button className="cad-funcoes-action cad-funcoes-action--confirm" type="submit" disabled={saving || loading || excluindo}>
           {loading ? 'Carregando...' : saving ? 'Salvando...' : editing ? 'Salvar alterações' : 'Incluir função'}
         </button>
       </div>

@@ -293,6 +293,38 @@ app.put('/consultafuncoes/:funcCod', async (request, reply) => {
   }
 })
 
+async function encaminharExclusao(request, reply, caminho, registro) {
+  if (!await obterUidAutenticado(request, reply)) {
+    return { success: false, message: 'Sessão do usuário expirada' }
+  }
+
+  const codigo = Number(request.params.codigo)
+  if (!Number.isInteger(codigo) || codigo < 1 || codigo > 2147483647) {
+    reply.code(400)
+    return { success: false, message: 'Informe um código válido.' }
+  }
+
+  try {
+    const { response, data } = await consultarRegistrador(`/${caminho}/${codigo}`, {
+      method: 'DELETE',
+      headers: { Authorization: request.headers.authorization }
+    })
+    reply.code(response.status)
+    return data
+  } catch {
+    reply.code(503)
+    return { success: false, message: `Não foi possível confirmar a exclusão. Verifique se ${registro} ainda aparece na consulta.` }
+  }
+}
+
+app.delete('/consultafuncoes/:codigo', (request, reply) =>
+  encaminharExclusao(request, reply, 'consultafuncoes', 'a função')
+)
+
+app.delete('/consultausuario/:codigo', (request, reply) =>
+  encaminharExclusao(request, reply, 'consultausuario', 'o colaborador')
+)
+
 app.post('/cadastrarusuario', async (request, reply) => {
   const userId = await obterUidAutenticado(request, reply)
   if (!userId) return { success: false, message: 'Sessão do usuário expirada' }

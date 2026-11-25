@@ -97,6 +97,12 @@
   color: #fffdf8;
 }
 
+.cad-funcoes-action--delete {
+  background: #fffdf8;
+  border-color: #a32828;
+  color: #a32828;
+}
+
 .cad-funcoes-action:disabled {
   cursor: wait;
   opacity: 0.65;

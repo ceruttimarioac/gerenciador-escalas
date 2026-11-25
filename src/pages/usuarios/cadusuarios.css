@@ -56,6 +56,17 @@
 	color: #fffdf8;
 }
 
+.cad-usuarios-action--delete {
+	background: #fffdf8;
+	border-color: #a32828;
+	color: #a32828;
+}
+
+.cad-usuarios-action--delete:disabled {
+	cursor: wait;
+	opacity: 0.65;
+}
+
 .cad-usuarios-action:hover,
 .cad-usuarios-action:active,
 .cad-usuarios-action:focus-visible {
